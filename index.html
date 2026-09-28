@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>NO SIGNAL — Pakistan Streetwear | Apparel Co.</title>
+<meta name="description" content="NO SIGNAL Apparel Co. — independent futuristic streetwear from Pakistan. Shop limited drops, tees, hoodies and accessories.">
+<meta name="robots" content="index,follow">
+<meta property="og:title" content="NO SIGNAL — Pakistan Streetwear">
+<meta property="og:description" content="Independent futuristic streetwear from Pakistan.">
+<meta property="og:type" content="website">
+<meta property="og:image" content="assets/no-signal-logo.png">
+<link rel="icon" href="assets/no-signal-logo.png">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<div class="noise"></div>
+<div id="intro" class="intro">
+  <div class="intro-grid"></div>
+  <div class="impact"><span></span><span></span><span></span></div>
+  <div class="smoke smoke-a"></div><div class="smoke smoke-b"></div><div class="smoke smoke-c"></div>
+  <div class="intro-logo">
+    <img id="introEmblem" src="assets/emblem.png" alt="">
+    <img id="introWord" src="assets/wordmark.png" alt="NO SIGNAL">
+    <img id="introApparel" src="assets/apparel.png" alt="APPAREL CO.">
+  </div>
+  <div class="intro-signal">NO SIGNAL</div>
+  <button id="enter" class="enter">ENTER THE SIGNAL <span>↗</span></button>
+  <p class="sound-note">SOUND EFFECTS AVAILABLE · TAP ENTER TO ENABLE</p>
+</div>
+
+<header class="topbar">
+  <a class="brand" href="#top" aria-label="NO SIGNAL home">
+    <span class="brand-mark">NS</span><span>NO SIGNAL</span>
+  </a>
+  <nav>
+    <a href="#shop">SHOP</a><a href="#manifesto">MANIFESTO</a><a href="#drop">DROP 01</a>
+  </nav>
+  <div class="tools">
+    <button data-open="search">SEARCH</button>
+    <button data-open="wishlist">WISHLIST <b id="wishCount">0</b></button>
+    <button data-open="bag">BAG <b id="bagCount">0</b></button>
+  </div>
+</header>
+
+<main id="top">
+<section class="hero">
+  <div class="hero-scan"></div>
+  <div class="hero-copy">
+    <p class="eyebrow">PAKISTAN / 2026 / INDEPENDENT STREETWEAR</p>
+    <h1>WEAR<br><span>THE UNKNOWN.</span></h1>
+    <p class="hero-text">A signal for the people who never needed permission.</p>
+    <a class="button button-lime" href="#shop">SHOP THE DROP <span>↓</span></a>
+  </div>
+  <div class="hero-art">
+    <div class="crosshair"></div>
+    <div class="hero-word">N/S</div>
+    <div class="hero-stamp">SIGNAL<br>LOST<br><small>001</small></div>
+  </div>
+</section>
+
+<section class="ticker" id="drop"><div>NO SIGNAL / DROP 01 / NO SIGNAL / DROP 01 / NO SIGNAL / DROP 01 /</div></section>
+
+<section class="shop" id="shop">
+  <div class="section-head">
+    <div><p class="eyebrow">001 — COLLECTION</p><h2>THE DROP.</h2></div>
+    <div class="filters">
+      <button class="filter active" data-cat="ALL">ALL</button>
+      <button class="filter" data-cat="T-SHIRTS">T-SHIRTS</button>
+      <button class="filter" data-cat="HOODIES">HOODIES</button>
+      <button class="filter" data-cat="ACCESSORIES">ACCESSORIES</button>
+    </div>
+  </div>
+  <div id="productGrid" class="product-grid"></div>
+</section>
+
+<section class="manifesto" id="manifesto">
+  <div class="manifesto-code">NO_SIGNAL<br>APPAREL_CO<br>PK / 001</div>
+  <div><p class="eyebrow">THE SIGNAL IS YOURS</p><h2>WE DON'T<br>FOLLOW<br><i>FREQUENCIES.</i></h2></div>
+  <p class="manifesto-copy">NO SIGNAL is a Pakistan-based streetwear label built around independent design, distorted identities and pieces that feel like they came from somewhere just outside the feed.</p>
+</section>
+
+<section class="info-strip">
+  <div><span>01</span><strong>DESIGNED<br>IN PAKISTAN</strong></div>
+  <div><span>02</span><strong>COD +<br>ONLINE</strong></div>
+  <div><span>03</span><strong>TRACK<br>YOUR ORDER</strong></div>
+  <div><span>04</span><strong>LIMITED<br>DROPS</strong></div>
+</section>
+</main>
+
+<footer>
+  <div class="footer-logo">NO<br>SIGNAL<span>APPAREL CO.</span></div>
+  <div class="footer-links"><a href="#shop">SHOP</a><a href="#manifesto">ABOUT</a><button data-open="admin">ADMIN</button></div>
+  <div class="footer-meta">© 2026 NO SIGNAL APPAREL CO.<br>PAKISTAN</div>
+</footer>
+
+<div id="productTransition" class="product-transition" aria-hidden="true">
+  <div class="pt-noise"></div><div class="pt-ring"></div><div class="pt-smoke"></div>
+  <div class="pt-signal">NO SIGNAL</div><img src="assets/emblem.png" alt=""><div class="pt-line"></div>
+</div>
+<div id="drawer" class="drawer" aria-hidden="true"><div class="drawer-backdrop"></div><aside class="drawer-panel"><button class="close" id="closeDrawer">×</button><div id="drawerContent"></div></aside></div>
+
+<div id="searchModal" class="modal"><button class="close" data-close="search">×</button><div class="search-box"><p class="eyebrow">SEARCH THE SIGNAL</p><input id="searchInput" placeholder="TYPE TO SEARCH..." autofocus><div id="searchResults"></div></div></div>
+
+<div id="adminModal" class="modal"><button class="close" data-close="admin">×</button><div class="admin"><p class="eyebrow">PRIVATE CONTROL PANEL</p><h2>NO SIGNAL ADMIN</h2><p class="muted">Production migration is being prepared. Real orders, payments and fulfillment must be connected before launch.</p><div class="admin-tabs"><button class="active" data-admin-tab="products">PRODUCTS</button><button data-admin-tab="orders">ORDERS</button><button data-admin-tab="settings">SETTINGS</button></div><div id="adminContent"></div></div></div>
+
+<script src="store.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
