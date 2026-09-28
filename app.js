@@ -3,15 +3,12 @@ const $ = s => document.querySelector(s);
 const $$ = s => [...document.querySelectorAll(s)];
 const money = n => `${NO_SIGNAL.settings.currency} ${Number(n).toLocaleString("en-PK")}`;
 
-let products = JSON.parse(localStorage.getItem("ns_products") || "null") || NO_SIGNAL.products;
+let products = NO_SIGNAL.products.slice();
 let cart = JSON.parse(localStorage.getItem("ns_cart") || "[]");
 let wishlist = JSON.parse(localStorage.getItem("ns_wishlist") || "[]");
-let orders = JSON.parse(localStorage.getItem("ns_orders") || "[]");
-const savedSettings = JSON.parse(localStorage.getItem("ns_settings") || "null");
-if (savedSettings) Object.assign(NO_SIGNAL.settings, savedSettings);
+let orders = [];
+let adminUnlocked = false;
 let currentCategory = "ALL";
-let adminUnlocked = sessionStorage.getItem("ns_admin_unlocked") === "1";
-const ADMIN_PIN = "NOSIGNAL"; // Demo gate only. Real launch must use server authentication.
 
 function playProductTransition(id){
   const overlay=$("#productTransition");
@@ -21,7 +18,7 @@ function playProductTransition(id){
 }
 
 
-function save(){localStorage.setItem("ns_products",JSON.stringify(products));localStorage.setItem("ns_cart",JSON.stringify(cart));localStorage.setItem("ns_wishlist",JSON.stringify(wishlist));localStorage.setItem("ns_orders",JSON.stringify(orders));localStorage.setItem("ns_settings",JSON.stringify(NO_SIGNAL.settings));}
+function save(){localStorage.setItem("ns_cart",JSON.stringify(cart));localStorage.setItem("ns_wishlist",JSON.stringify(wishlist));}
 function countBag(){return cart.reduce((a,x)=>a+x.qty,0)}
 function updateCounts(){$("#bagCount").textContent=countBag();$("#wishCount").textContent=wishlist.length}
 
@@ -59,50 +56,41 @@ function add(id){const p=products.find(x=>x.id===id);if(!p)return;const item=car
 
 function checkout(){
  if(!cart.length)return;
- const total=cart.reduce((a,x)=>a+x.price*x.qty,0);
- openDrawer(`<p class="eyebrow">CHECKOUT / ${money(total)}</p><h2>YOUR DETAILS.</h2><form id="checkoutForm" class="admin-form"><input required placeholder="FULL NAME"><input required placeholder="PHONE"><input required type="email" placeholder="EMAIL"><input required placeholder="CITY"><textarea required placeholder="COMPLETE DELIVERY ADDRESS"></textarea><input placeholder="POSTAL CODE"><select id="pay" style="background:#0d0d0d;border:1px solid #333;color:white;padding:13px;font:10px Space Mono"><option>Cash on Delivery</option><option>Online Payment</option></select><button>PLACE ORDER</button></form>`);
- $("#checkoutForm").onsubmit=e=>{e.preventDefault();const data=Object.fromEntries(new FormData(e.target));orders.push({id:"NS-"+Math.floor(1000+Math.random()*9000),date:new Date().toISOString(),items:cart,total,payment:data.pay,status:"Order Received",customer:data});cart=[];save();updateCounts();openDrawer(`<p class="eyebrow">ORDER CONFIRMED</p><h2>THANK YOU.</h2><p class="muted">Your NO SIGNAL order has been received.</p><div style="border:1px solid var(--lime);padding:20px;margin-top:30px">ORDER NUMBER<br><strong style="font-size:24px;color:var(--lime)">${orders.at(-1).id}</strong></div>`)}
+ const subtotal=cart.reduce((a,x)=>a+x.price*x.qty,0);
+ const shipping=subtotal>=NO_SIGNAL.settings.freeShippingAbove?0:NO_SIGNAL.settings.shippingFee;
+ const total=subtotal+shipping;
+ openDrawer(`<p class="eyebrow">CHECKOUT / ${money(total)}</p><h2>YOUR DETAILS.</h2><form id="checkoutForm" class="admin-form"><input name="name" required placeholder="FULL NAME"><input name="phone" required placeholder="PHONE"><input name="email" required type="email" placeholder="EMAIL"><input name="city" required placeholder="CITY"><textarea name="address" required placeholder="COMPLETE DELIVERY ADDRESS"></textarea><input name="postalCode" placeholder="POSTAL CODE"><select name="paymentMethod" style="background:#0d0d0d;border:1px solid #333;color:white;padding:13px;font:10px Space Mono"><option value="cod">Cash on Delivery</option><option value="online">Online Payment</option></select><button>PLACE ORDER</button></form>`);
+ $("#checkoutForm").onsubmit=async e=>{e.preventDefault();const data=Object.fromEntries(new FormData(e.target));const payload={customer:data,paymentMethod:data.paymentMethod,shipping,items:cart.map(x=>({productId:x.id,name:x.name,size:x.size||x.sizes?.[0],color:x.color||x.colors?.[0],quantity:x.qty,unitPrice:x.price}))};try{const r=await fetch('/api/orders',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(payload)});const out=await r.json();if(!r.ok)throw new Error(out.error||'Order failed');const orderId=out.orderId;cart=[];save();updateCounts();openDrawer(`<p class="eyebrow">ORDER CONFIRMED</p><h2>THANK YOU.</h2><p class="muted">Your NO SIGNAL order has been received.</p><div style="border:1px solid var(--lime);padding:20px;margin-top:30px">ORDER NUMBER<br><strong style="font-size:24px;color:var(--lime)">${orderId}</strong></div>`)}catch(err){alert(err.message)}}
+}
+async function adminFetch(url, options={}){const r=await fetch(url,{credentials:'same-origin',...options});let data={};try{data=await r.json()}catch{}if(r.status===401){adminUnlocked=false;throw new Error('SESSION_EXPIRED')}if(!r.ok)throw new Error(data.error||'Request failed');return data}
+
+async function adminTab(tab="products"){
+ if(!adminUnlocked)return openAdmin();
+ let html=`<p class="muted">LOADING...</p>`;$("#adminContent").innerHTML=html;
+ try{
+  if(tab==="products"){
+   const ps=await adminFetch('/api/admin/products');
+   html=`<div class="admin-row"><b>ADD NEW PRODUCT</b><button class="button button-lime" id="newProduct">+ ADD</button></div>${ps.map(p=>`<div class="admin-row"><div><b>${p.name}</b><small>${p.category} · ${money(p.price)}</small></div><span>${p.stock} IN STOCK</span><button data-del-product="${p.id}" style="background:none;border:0;color:#ff3b30">DELETE</button></div>`).join("")}`;
+  } else if(tab==="orders"){
+   const os=await adminFetch('/api/admin/orders');
+   html=os.length?os.map(o=>`<div class="admin-row"><div><b>${o.id}</b><small>${o.customerName||'Customer'} · ${o.paymentMethod||''}</small></div><span>${money(o.total)}</span><span>${o.status||'received'}</span></div>`).join(""):`<p class="muted">No orders yet.</p>`;
+  } else {
+   const ss=await adminFetch('/api/admin/settings'); const s={...NO_SIGNAL.settings,...ss}; Object.assign(NO_SIGNAL.settings,s);
+   html=`<p class="muted" style="margin-bottom:22px">Edit your store details here. Changes are saved to the live database.</p><form id="settingsForm" class="admin-form">
+   <input name="brand" value="${s.brand||''}" placeholder="BRAND NAME"><input name="subbrand" value="${s.subbrand||''}" placeholder="SUB-BRAND"><input name="tagline" value="${s.tagline||''}" placeholder="TAGLINE"><input name="email" value="${s.email||''}" placeholder="EMAIL"><input name="phone" value="${s.phone||''}" placeholder="PHONE"><input name="whatsapp" value="${s.whatsapp||''}" placeholder="WHATSAPP"><input name="instagram" value="${s.instagram||''}" placeholder="INSTAGRAM URL / @HANDLE"><input name="tiktok" value="${s.tiktok||''}" placeholder="TIKTOK URL / @HANDLE"><input name="facebook" value="${s.facebook||''}" placeholder="FACEBOOK URL"><input name="youtube" value="${s.youtube||''}" placeholder="YOUTUBE URL"><input name="address" value="${s.address||''}" placeholder="BUSINESS / RETURN ADDRESS"><input name="businessHours" value="${s.businessHours||''}" placeholder="BUSINESS HOURS"><input name="shippingFee" value="${s.shippingFee??''}" placeholder="STANDARD SHIPPING FEE (PKR)"><input name="freeShippingAbove" value="${s.freeShippingAbove??''}" placeholder="FREE SHIPPING ABOVE (PKR)"><button>SAVE ALL STORE DETAILS</button></form>`;
+  }
+  $("#adminContent").innerHTML=html;
+  $("#newProduct")?.addEventListener("click",()=>{ $("#adminContent").innerHTML=`<form id="productForm" class="admin-form"><input name="name" required placeholder="PRODUCT NAME"><input name="price" required type="number" placeholder="PRICE PKR"><input name="category" required placeholder="CATEGORY (T-SHIRTS / HOODIES / ACCESSORIES)"><input name="stock" required type="number" placeholder="STOCK"><input name="sizes" placeholder="SIZES: S,M,L,XL"><input name="badge" placeholder="BADGE"><textarea name="description" placeholder="DESCRIPTION"></textarea><button>CREATE PRODUCT</button></form>`;$("#productForm").onsubmit=async e=>{e.preventDefault();const d=Object.fromEntries(new FormData(e.target));try{await adminFetch('/api/admin/products',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({name:d.name,price:+d.price,category:d.category,stock:+d.stock,sizes:(d.sizes||'S,M,L,XL').split(',').map(x=>x.trim()),badge:d.badge||'NEW',description:d.description||'',image:'assets/no-signal-logo.png'})});await adminTab('products');await loadProducts()}catch(err){alert(err.message)}}});
+  $$('[data-del-product]').forEach(b=>b.onclick=async()=>{if(!confirm('Delete this product?'))return;try{await adminFetch('/api/admin/products',{method:'DELETE',headers:{'content-type':'application/json'},body:JSON.stringify({id:b.dataset.delProduct})});await adminTab('products');await loadProducts()}catch(err){alert(err.message)}});
+  $("#settingsForm")?.addEventListener("submit",async e=>{e.preventDefault();const d=Object.fromEntries(new FormData(e.target));d.shippingFee=+d.shippingFee;d.freeShippingAbove=+d.freeShippingAbove;try{const out=await adminFetch('/api/admin/settings',{method:'PUT',headers:{'content-type':'application/json'},body:JSON.stringify(d)});Object.assign(NO_SIGNAL.settings,out.settings);alert('Store details saved.')}catch(err){alert(err.message)}});
+ }catch(err){if(err.message==='SESSION_EXPIRED'){openAdmin();return}$("#adminContent").innerHTML=`<p class="muted">${err.message}</p>`}
 }
 
-function adminTab(tab="products"){
- let html="";
- if(tab==="products"){
-   html=`<div class="admin-row"><b>ADD NEW PRODUCT</b><button class="button button-lime" id="newProduct">+ ADD</button></div>${products.map(p=>`<div class="admin-row"><div><b>${p.name}</b><small>${p.category} · ${money(p.price)}</small></div><span>${p.stock} IN STOCK</span><button data-del-product="${p.id}" style="background:none;border:0;color:#ff3b30">DELETE</button></div>`).join("")}`;
- } else if(tab==="orders"){
-   html=orders.length?orders.map(o=>`<div class="admin-row"><div><b>${o.id}</b><small>${o.customer?.FULL_NAME||"Customer"} · ${o.payment}</small></div><span>${money(o.total)}</span><span>${o.status}</span></div>`).join(""):`<p class="muted">No orders yet. Test checkout to create one.</p>`;
- } else {
-   const s=NO_SIGNAL.settings;
-   html=`<p class="muted" style="margin-bottom:22px">Edit your store details here. No code changes are required.</p>
-   <form id="settingsForm" class="admin-form">
-   <input name="brand" value="${s.brand||""}" placeholder="BRAND NAME">
-   <input name="subbrand" value="${s.subbrand||""}" placeholder="SUB-BRAND">
-   <input name="tagline" value="${s.tagline||""}" placeholder="TAGLINE">
-   <input name="email" value="${s.email||""}" placeholder="EMAIL">
-   <input name="phone" value="${s.phone||""}" placeholder="PHONE">
-   <input name="whatsapp" value="${s.whatsapp||""}" placeholder="WHATSAPP">
-   <input name="instagram" value="${s.instagram||""}" placeholder="INSTAGRAM URL / @HANDLE">
-   <input name="tiktok" value="${s.tiktok||""}" placeholder="TIKTOK URL / @HANDLE">
-   <input name="facebook" value="${s.facebook||""}" placeholder="FACEBOOK URL">
-   <input name="youtube" value="${s.youtube||""}" placeholder="YOUTUBE URL">
-   <input name="facebook" value="${s.facebook||""}" placeholder="FACEBOOK">
-   <input name="youtube" value="${s.youtube||""}" placeholder="YOUTUBE">
-   <input name="address" value="${s.address||""}" placeholder="BUSINESS / RETURN ADDRESS">
-   <input name="businessHours" value="${s.businessHours||""}" placeholder="BUSINESS HOURS">
-   <input name="shippingFee" value="${s.shippingFee??""}" placeholder="STANDARD SHIPPING FEE (PKR)">
-   <input name="freeShippingAbove" value="${s.freeShippingAbove??""}" placeholder="FREE SHIPPING ABOVE (PKR)">
-   <button>SAVE ALL STORE DETAILS</button></form>`;
- }
- $("#adminContent").innerHTML=html;
- $("#newProduct")?.addEventListener("click",()=>{ $("#adminContent").innerHTML=`<form id="productForm" class="admin-form"><input name="name" required placeholder="PRODUCT NAME"><input name="price" required type="number" placeholder="PRICE PKR"><input name="category" required placeholder="CATEGORY (T-SHIRTS / HOODIES / ACCESSORIES)"><input name="stock" required type="number" placeholder="STOCK"><input name="sizes" placeholder="SIZES: S,M,L,XL"><input name="badge" placeholder="BADGE"><textarea name="description" placeholder="DESCRIPTION"></textarea><button>CREATE PRODUCT</button></form>`;$("#productForm").onsubmit=e=>{e.preventDefault();const d=Object.fromEntries(new FormData(e.target));products.push({id:"NS-"+String(products.length+1).padStart(3,"0"),name:d.name,category:d.category.toUpperCase(),price:+d.price,stock:+d.stock,badge:d.badge||"NEW",sizes:(d.sizes||"S,M,L,XL").split(",").map(x=>x.trim()),colors:["BLACK"],description:d.description||"",image:"assets/no-signal-logo.png"});save();adminTab();renderProducts()}})
- $$("[data-del-product]").forEach(b=>b.onclick=()=>{products=products.filter(p=>p.id!==b.dataset.delProduct);save();adminTab();renderProducts()});
- $("#settingsForm")?.addEventListener("submit",e=>{e.preventDefault();const d=Object.fromEntries(new FormData(e.target));Object.assign(NO_SIGNAL.settings,d,{shippingFee:+d.shippingFee,freeShippingAbove:+d.freeShippingAbove});save();alert("Store details saved. No code changes are required.")});
-}
-
-function openAdmin(){
-  $("#adminModal").classList.add("open");
-  if(adminUnlocked){ adminTab(); return; }
-  $("#adminContent").innerHTML=`<div class="admin-lock"><p class="eyebrow">PRIVATE AREA</p><h2>ADMIN ACCESS.</h2><p class="muted">Store management is private. Enter your admin password to continue.</p><form id="adminLogin"><input id="adminPassword" type="password" autocomplete="current-password" placeholder="ADMIN PASSWORD" required><div id="adminError" class="admin-error"></div><button>UNLOCK ADMIN</button></form></div>`;
-  $("#adminLogin").onsubmit=e=>{e.preventDefault();const v=$("#adminPassword").value;if(v===ADMIN_PIN){adminUnlocked=true;sessionStorage.setItem("ns_admin_unlocked","1");adminTab()}else{$("#adminError").textContent="Incorrect password."}};
+async function openAdmin(){
+ $("#adminModal").classList.add("open");
+ try{await adminFetch('/api/admin/session');adminUnlocked=true;adminTab();return}catch(_){}
+ $("#adminContent").innerHTML=`<div class="admin-lock"><p class="eyebrow">PRIVATE AREA</p><h2>ADMIN ACCESS.</h2><p class="muted">Store management is private. Enter your admin password to continue.</p><form id="adminLogin"><input id="adminPassword" type="password" autocomplete="current-password" placeholder="ADMIN PASSWORD" required><div id="adminError" class="admin-error"></div><button>UNLOCK ADMIN</button></form></div>`;
+ $("#adminLogin").onsubmit=async e=>{e.preventDefault();const v=$("#adminPassword").value;try{await adminFetch('/api/admin/login',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({password:v})});adminUnlocked=true;await adminTab()}catch(err){$("#adminError").textContent=err.message==='SESSION_EXPIRED'?'Session expired.':'Incorrect password.'}};
 }
 function closeModal(id){$("#"+id+"Modal").classList.remove("open")}
 
@@ -131,4 +119,7 @@ $("#enter").addEventListener("click",()=>{
  try{const C=window.AudioContext||window.webkitAudioContext;const c=new C(),o=c.createOscillator(),g=c.createGain();o.type="sawtooth";o.frequency.setValueAtTime(90,c.currentTime);o.frequency.exponentialRampToValueAtTime(35,c.currentTime+.35);g.gain.setValueAtTime(.0001,c.currentTime);g.gain.exponentialRampToValueAtTime(.25,c.currentTime+.02);g.gain.exponentialRampToValueAtTime(.0001,c.currentTime+.42);o.connect(g).connect(c.destination);o.start();o.stop(c.currentTime+.45)}catch(_){}
  $("#intro").classList.add("hide");
 });
+async function loadProducts(){try{const r=await fetch('/api/products');if(r.ok){const data=await r.json();if(Array.isArray(data)&&data.length)products=data;renderProducts()}}catch(_){} }
+async function loadSettings(){try{const r=await fetch('/api/settings');if(r.ok)Object.assign(NO_SIGNAL.settings,await r.json())}catch(_){} }
+loadSettings().then(loadProducts);
 renderProducts();updateCounts();
