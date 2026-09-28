@@ -1,5 +1,5 @@
 name = "no-signal-store"
-compatibility_date = "2026-09-29"
+compatibility_date = "2026-09-28"
 pages_build_output_dir = "."
 
 [[d1_databases]]
