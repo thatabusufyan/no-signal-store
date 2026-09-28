@@ -5,4 +5,4 @@ pages_build_output_dir = "."
 [[d1_databases]]
 binding = "DB"
 database_name = "no-signal-db"
-database_id = "REPLACE_WITH_CLOUDFLARE_D1_DATABASE_ID"
+database_id = "abc69744-c68d-4dda-821e-a177764bd2e9"
