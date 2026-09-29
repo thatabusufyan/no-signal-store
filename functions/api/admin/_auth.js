@@ -58,5 +58,6 @@ export async function verifyPassword(password, expected) {
   if (!expected || !password) return false;
   const a = new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(password)));
   const b = new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(expected)));
-  return crypto.timingSafeEqual(a, b);
+  return crypto.subtle.timingSafeEqual(a, b);
 }
+
