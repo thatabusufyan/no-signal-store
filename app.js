@@ -35,26 +35,19 @@ function updateCounts(){$("#bagCount").textContent=countBag();$("#wishCount").te
 
 function normalizeGallery(p){
   if(Array.isArray(p?.gallery)) return p.gallery.filter(x=>x&&x.src);
-  if(Array.isArray(p?.images)) return p.images.filter(x=>x&&x.src);
   const legacy=p?.colorImages||{};
-  const out=[];
-  Object.entries(legacy).forEach(([color,src])=>{
-    if(src) out.push({src,color});
-  });
-  if(!out.length&&p?.image) out.push({src:p.image,color:""});
-  return out;
+  return Object.entries(legacy).filter(([k])=>k!=="gallery").map(([color,src])=>({src,color}));
 }
-
+function getMainImages(p){
+  const g=normalizeGallery(p), main=g.filter(x=>!x.color||x.type==="main");
+  return main.length?main:g;
+}
 function getColorImages(p,color){
-  const gallery=normalizeGallery(p);
-  const wanted=String(color||"").toLowerCase();
-  const matching=gallery.filter(x=>String(x.color||"").toLowerCase()===wanted);
-  return matching.length ? matching : gallery;
+  const g=normalizeGallery(p), wanted=String(color||"").toLowerCase();
+  const matching=g.filter(x=>x.color&&String(x.color).toLowerCase()===wanted);
+  return matching.length?matching:getMainImages(p);
 }
-
-function getColorImage(p,color){
-  return getColorImages(p,color)[0]?.src || p?.image || "assets/no-signal-logo.png";
-}
+function getColorImage(p,color){return getColorImages(p,color)[0]?.src||p?.image||"assets/no-signal-logo.png";}
 
 function renderProducts(){
   const q=($("#searchInput")?.value||"").toLowerCase();
@@ -100,7 +93,7 @@ function productDetail(id){
  const colors=Array.isArray(p.colors)&&p.colors.length?p.colors:["BLACK"];
  const gallery=normalizeGallery(p);
  const firstColor=colors[0]||"";
- const initialImages=getColorImages(p,firstColor);
+ const initialImages=getMainImages(p);
 
  if(window.noSignalProductAudio){try{window.noSignalProductAudio.pause();window.noSignalProductAudio.currentTime=0}catch(_){}}
  window.noSignalProductAudio=null;
@@ -385,13 +378,14 @@ async function adminTab(tab="products"){
   const fileInput=$("#productImageFile");
   const urlInput=$("#productImageUrl");
   const preview=$("#productImagePreview");
-  const galleryFields=$("#galleryImageFields");
+  const mainFields=$("#mainImageFields");
+  const colorFields=$("#colorImageFields");
   const musicFile=$("#musicFile");
   const musicUrl=$("#musicUrl");
   const musicVolume=$("#musicVolume");
   const musicVolumeValue=$("#musicVolumeValue");
 
-  function imageFileToDataUrl(file){
+  function fileToDataUrl(file){
     return new Promise((resolve,reject)=>{
       const reader=new FileReader();
       reader.onload=()=>resolve(reader.result);
@@ -400,69 +394,81 @@ async function adminTab(tab="products"){
     });
   }
 
-  function addGalleryRow(src="",color=""){
+  function colorOptions(){
+    return (($("#productForm [name='colors']").value||"BLACK").split(",").map(x=>x.trim()).filter(Boolean))
+      .map(c=>`<option value="${c}">${c}</option>`).join("");
+  }
+
+  function addMediaRow(container,type){
     const row=document.createElement("div");
-    row.className="gallery-image-row";
+    row.className="media-image-row";
     row.style="border:1px solid #333;padding:12px;margin:8px 0";
     row.innerHTML=`
-      <input type="file" class="gallery-file" accept="image/*">
-      <input type="text" class="gallery-url" placeholder="OR IMAGE URL" value="${src.startsWith("http")?src:""}" style="margin-top:7px">
-      <select class="gallery-color" style="margin-top:7px;background:#0d0d0d;color:white;border:1px solid #333;padding:10px">
-        <option value="">ALL / UNASSIGNED</option>
-        ${(($("#productForm [name='colors']").value||"BLACK").split(",").map(x=>x.trim()).filter(Boolean)).map(c=>`<option value="${c}" ${c===color?"selected":""}>${c}</option>`).join("")}
-      </select>
-      <div class="gallery-preview" style="border:1px solid #222;padding:8px;margin-top:8px;min-height:60px;color:#666;font-size:10px">IMAGE PREVIEW</div>
-      <button type="button" class="button remove-gallery" style="margin-top:8px">REMOVE</button>`;
-    galleryFields.appendChild(row);
+      <input type="file" class="media-file" accept="image/*">
+      <input type="text" class="media-url" placeholder="OR IMAGE URL" style="margin-top:7px">
+      ${type==="color"?`<select class="media-color" style="margin-top:7px;background:#0d0d0d;color:white;border:1px solid #333;padding:10px;width:100%">
+        <option value="">SELECT COLOR</option>${colorOptions()}
+      </select>`:"<div class='muted' style='font-size:10px;margin-top:7px'>MAIN IMAGE</div>"}
+      <div class="media-preview" style="border:1px solid #222;padding:8px;margin-top:8px;min-height:70px;color:#666;font-size:10px">IMAGE PREVIEW</div>
+      <button type="button" class="button remove-media" style="margin-top:8px">REMOVE</button>`;
+    container.appendChild(row);
 
-    const file=row.querySelector(".gallery-file");
-    const url=row.querySelector(".gallery-url");
-    const preview=row.querySelector(".gallery-preview");
-    const show=src=>preview.innerHTML=`<img src="${src}" alt="" style="max-width:100%;max-height:150px;object-fit:contain;display:block">`;
+    const file=row.querySelector(".media-file");
+    const url=row.querySelector(".media-url");
+    const preview=row.querySelector(".media-preview");
+    const show=src=>preview.innerHTML=`<img src="${src}" alt="" style="max-width:100%;max-height:170px;object-fit:contain;display:block">`;
 
     file.addEventListener("change",async()=>{
       const f=file.files?.[0]; if(!f)return;
       if(!f.type.startsWith("image/")){alert("Please choose an image.");file.value="";return;}
-      if(f.size>2*1024*1024){alert("Please use an image smaller than 2 MB.");file.value="";return;}
-      try{show(await imageFileToDataUrl(f));}catch(_){alert("Could not read image.");}
+      if(f.size>2*1024*1024){alert("Each image must be smaller than 2 MB.");file.value="";return;}
+      try{show(await fileToDataUrl(f));}catch(_){alert("Could not read image.");}
     });
     url.addEventListener("input",()=>{if(url.value.trim()&&!file.files?.length)show(url.value.trim())});
-    row.querySelector(".remove-gallery").onclick=()=>row.remove();
+    row.querySelector(".remove-media").onclick=()=>row.remove();
   }
 
-  $("#addGalleryImage").addEventListener("click",()=>addGalleryRow());
+  $("#addMainImage").addEventListener("click",()=>addMediaRow(mainFields,"main"));
+  $("#addColorImage").addEventListener("click",()=>addMediaRow(colorFields,"color"));
 
   musicVolume.addEventListener("input",()=>musicVolumeValue.textContent=`${musicVolume.value}%`);
 
   $("#productForm").onsubmit=async e=>{
     e.preventDefault();
     const d=Object.fromEntries(new FormData(e.target));
-    const rows=[...galleryFields.querySelectorAll(".gallery-image-row")];
     const gallery=[];
 
-    for(const row of rows){
-      const color=row.querySelector(".gallery-color")?.value||"";
-      const file=row.querySelector(".gallery-file")?.files?.[0];
-      const url=row.querySelector(".gallery-url")?.value.trim();
-      let src=url;
-      if(file){
-        if(file.size>2*1024*1024){alert("Each product image must be smaller than 2 MB.");return;}
-        src=await imageFileToDataUrl(file);
+    async function collect(container,type){
+      for(const row of container.querySelectorAll(".media-image-row")){
+        const file=row.querySelector(".media-file")?.files?.[0];
+        const url=row.querySelector(".media-url")?.value.trim();
+        const color=type==="color"?(row.querySelector(".media-color")?.value||""):"";
+        if(type==="color"&&!color){alert("Select a color for every color-specific image.");return false;}
+        let src=url;
+        if(file){
+          if(file.size>2*1024*1024){alert("Each image must be smaller than 2 MB.");return false;}
+          src=await fileToDataUrl(file);
+        }
+        if(src)gallery.push({src,color,type});
       }
-      if(src)gallery.push({src,color});
+      return true;
     }
+
+    if(!await collect(mainFields,"main"))return;
+    if(!await collect(colorFields,"color"))return;
 
     let music="";
     const musicF=musicFile.files?.[0];
     if(musicF){
       if(!musicF.type.startsWith("audio/")){alert("Please choose an audio file.");return;}
-      if(musicF.size>700*1024){alert("For now, keep product music under 700 KB.");return;}
-      music=await imageFileToDataUrl(musicF);
+      if(musicF.size>5*1024*1024){alert("Music file must be 5 MB or smaller.");return;}
+      alert("5 MB local music uploads need the site's media-storage bucket before they can be saved. Please use a music URL for this save until that bucket is connected.");
+      return;
     }else{
       music=musicUrl.value.trim();
     }
 
-    const image=gallery[0]?.src||"assets/no-signal-logo.png";
+    const image=(gallery.find(x=>x.type==="main")||gallery[0])?.src||"assets/no-signal-logo.png";
 
     try{
       await adminFetch('/api/admin/products',{
