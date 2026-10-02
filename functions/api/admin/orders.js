@@ -48,6 +48,14 @@ export async function onRequestGet({ request, env }) {
     orders.push({
       ...o,
       status: o.fulfillmentStatus || "received",
+      customer: {
+        name: o.customerName || "",
+        email: o.email || "",
+        phone: o.phone || "",
+        city: o.city || "",
+        address: o.address || "",
+        postalCode: o.postalCode || ""
+      },
       items
     });
   }
