@@ -22,6 +22,14 @@ function save(){localStorage.setItem("ns_cart",JSON.stringify(cart));localStorag
 function countBag(){return cart.reduce((a,x)=>a+x.qty,0)}
 function updateCounts(){$("#bagCount").textContent=countBag();$("#wishCount").textContent=wishlist.length}
 
+function getColorImage(p,color){
+  return p?.colorImages?.[color]
+    || p?.colorImages?.[String(color).toUpperCase()]
+    || p?.colorImages?.[String(color).toLowerCase()]
+    || p?.image
+    || "assets/no-signal-logo.png";
+}
+
 function renderProducts(){
   const q=($("#searchInput")?.value||"").toLowerCase();
   const list=products.filter(p=>(currentCategory==="ALL"||p.category===currentCategory)&&(!q||`${p.name} ${p.category} ${p.description}`.toLowerCase().includes(q)));
@@ -30,7 +38,7 @@ function renderProducts(){
       <div class="product-image" data-product="${p.id}">
         <span class="product-badge">${p.badge||"CORE"}</span>
         <button class="heart ${wishlist.includes(p.id)?"on":""}" data-wish="${p.id}">${wishlist.includes(p.id)?"♥":"♡"}</button>
-        <img class="catalogue-product-image" src="${p.image}" alt="${p.name}">
+        <img class="catalogue-product-image" src="${getColorImage(p, (p.colors&&p.colors[0])||"BLACK")}" alt="${p.name}">
         ${Array.isArray(p.colors)&&p.colors.length>1?`
           <div class="catalogue-colors">
             ${p.colors.map((c,i)=>`
@@ -66,7 +74,7 @@ function productDetail(id){
   <p class="eyebrow">${p.category} / ${p.id}</p>
   <h2>${p.name}</h2>
   <div class="drawer-img">
-    <img id="detailProductImage" src="${p.image}" alt="${p.name}">
+    <img id="detailProductImage" src="${getColorImage(p, colors[0])}" alt="${p.name}">
   </div>
   <div class="drawer-price">${money(p.price)}</div>
   <p class="muted">${p.description||""}</p>
@@ -104,6 +112,8 @@ function productDetail(id){
      drawer.querySelectorAll("[data-color]").forEach(x=>x.classList.remove("selected"));
      btn.classList.add("selected");
      $("#addToBag").dataset.selectedColor=btn.dataset.color;
+     const detailImage=$("#detailProductImage");
+     if(detailImage) detailImage.src=getColorImage(p,btn.dataset.color);
    });
  });
 }
@@ -172,7 +182,7 @@ function add(id,size,color){
  if(item){
    item.qty++;
  }else{
-   cart.push({...p,qty:1,size,color});
+   cart.push({...p,image:getColorImage(p,color),qty:1,size,color});
  }
 
  save();
@@ -289,10 +299,12 @@ async function adminTab(tab="products"){
     <input name="sizes" placeholder="SIZES: S,M,L,XL">
     <input name="colors" placeholder="COLORS: BLACK,WHITE">
     <input name="badge" placeholder="BADGE (NEW / SALE / LIMITED)">
-    <label style="display:block;font-size:10px;letter-spacing:.08em;color:#999;margin-top:4px">PRODUCT IMAGE</label>
+    <label style="display:block;font-size:10px;letter-spacing:.08em;color:#999;margin-top:4px">MAIN PRODUCT IMAGE</label>
     <input id="productImageFile" name="imageFile" type="file" accept="image/*">
     <input id="productImageUrl" name="imageUrl" placeholder="OR IMAGE URL (OPTIONAL)">
     <div id="productImagePreview" style="border:1px solid #333;padding:10px;margin:4px 0 10px;min-height:90px;display:flex;align-items:center;justify-content:center;color:#666;font-size:11px">IMAGE PREVIEW</div>
+    <button type="button" class="button" id="buildColorImages">SET COLOR IMAGES</button>
+    <div id="colorImageFields" style="margin-top:12px"></div>
     <textarea name="description" placeholder="DESCRIPTION"></textarea>
     <button>CREATE PRODUCT</button>
   </form>`;
@@ -300,14 +312,24 @@ async function adminTab(tab="products"){
   const fileInput=$("#productImageFile");
   const urlInput=$("#productImageUrl");
   const preview=$("#productImagePreview");
+  const colorFields=$("#colorImageFields");
   let selectedImage="assets/no-signal-logo.png";
+
+  function imageFileToDataUrl(file){
+    return new Promise((resolve,reject)=>{
+      const reader=new FileReader();
+      reader.onload=()=>resolve(reader.result);
+      reader.onerror=reject;
+      reader.readAsDataURL(file);
+    });
+  }
 
   function showPreview(src){
     selectedImage=src;
     preview.innerHTML=`<img src="${src}" alt="Product preview" style="max-width:100%;max-height:220px;object-fit:contain;display:block">`;
   }
 
-  fileInput.addEventListener("change",()=>{
+  fileInput.addEventListener("change",async()=>{
     const file=fileInput.files?.[0];
     if(!file)return;
     if(!file.type.startsWith("image/")){
@@ -320,9 +342,7 @@ async function adminTab(tab="products"){
       fileInput.value="";
       return;
     }
-    const reader=new FileReader();
-    reader.onload=()=>showPreview(reader.result);
-    reader.readAsDataURL(file);
+    try{showPreview(await imageFileToDataUrl(file));}catch(_){alert("Could not read image.");}
   });
 
   urlInput.addEventListener("input",()=>{
@@ -334,10 +354,61 @@ async function adminTab(tab="products"){
     }
   });
 
+  function buildColorFields(){
+    const colors=(($("#productForm [name='colors']").value||"BLACK").split(",").map(x=>x.trim()).filter(Boolean));
+    colorFields.innerHTML=colors.map(color=>`
+      <div class="color-image-block" data-color-block="${color}" style="border:1px solid #333;padding:14px;margin:10px 0">
+        <div style="font-size:11px;letter-spacing:.08em;margin-bottom:10px">${color}</div>
+        <input type="file" class="color-image-file" accept="image/*" data-color="${color}">
+        <input type="text" class="color-image-url" placeholder="OR IMAGE URL FOR ${color}" data-color="${color}" style="margin-top:7px">
+        <div class="color-image-preview" style="border:1px solid #222;padding:8px;margin-top:8px;min-height:60px;color:#666;font-size:10px">COLOR IMAGE PREVIEW</div>
+      </div>`).join("");
+
+    colorFields.querySelectorAll(".color-image-file").forEach(input=>{
+      input.addEventListener("change",async()=>{
+        const file=input.files?.[0];
+        const block=input.closest(".color-image-block");
+        const previewBlock=block?.querySelector(".color-image-preview");
+        if(!file||!previewBlock)return;
+        if(!file.type.startsWith("image/")){alert("Please choose an image file.");input.value="";return;}
+        if(file.size>2*1024*1024){alert("Please use an image smaller than 2 MB.");input.value="";return;}
+        try{
+          const src=await imageFileToDataUrl(file);
+          previewBlock.innerHTML=`<img src="${src}" alt="" style="max-width:100%;max-height:150px;object-fit:contain;display:block">`;
+        }catch(_){alert("Could not read image.");}
+      });
+    });
+
+    colorFields.querySelectorAll(".color-image-url").forEach(input=>{
+      input.addEventListener("input",()=>{
+        const block=input.closest(".color-image-block");
+        const previewBlock=block?.querySelector(".color-image-preview");
+        const url=input.value.trim();
+        if(url&&previewBlock) previewBlock.innerHTML=`<img src="${url}" alt="" style="max-width:100%;max-height:150px;object-fit:contain;display:block">`;
+        else if(previewBlock) previewBlock.textContent="COLOR IMAGE PREVIEW";
+      });
+    });
+  }
+
+  $("#buildColorImages").addEventListener("click",buildColorFields);
+
   $("#productForm").onsubmit=async e=>{
     e.preventDefault();
     const d=Object.fromEntries(new FormData(e.target));
     const image=fileInput.files?.length ? selectedImage : (urlInput.value.trim() || "assets/no-signal-logo.png");
+    const colorImages={};
+
+    for(const block of colorFields.querySelectorAll(".color-image-block")){
+      const color=block.dataset.colorBlock;
+      const file=block.querySelector(".color-image-file")?.files?.[0];
+      const url=block.querySelector(".color-image-url")?.value.trim();
+      if(file){
+        if(file.size>2*1024*1024){alert(`Image for ${color} is larger than 2 MB.`);return;}
+        colorImages[color]=await imageFileToDataUrl(file);
+      }else if(url){
+        colorImages[color]=url;
+      }
+    }
 
     try{
       await adminFetch('/api/admin/products',{
@@ -353,7 +424,8 @@ async function adminTab(tab="products"){
           colors:(d.colors||'BLACK').split(',').map(x=>x.trim()).filter(Boolean),
           badge:d.badge||'NEW',
           description:d.description||'',
-          image
+          image,
+          colorImages
         })
       });
 
@@ -378,6 +450,20 @@ async function openAdmin(){
 function closeModal(id){$("#"+id+"Modal").classList.remove("open")}
 
 document.addEventListener("click",e=>{
+ const colorBtn=e.target.closest("[data-catalogue-color]");
+ if(colorBtn){
+   e.preventDefault();
+   e.stopPropagation();
+   const product=products.find(x=>x.id===colorBtn.dataset.productColor);
+   if(product){
+     const img=colorBtn.closest(".product-image")?.querySelector(".catalogue-product-image");
+     const src=getColorImage(product,colorBtn.dataset.catalogueColor);
+     if(img) img.src=src;
+     colorBtn.closest(".catalogue-colors")?.querySelectorAll("[data-catalogue-color]").forEach(x=>x.classList.remove("selected"));
+     colorBtn.classList.add("selected");
+   }
+   return;
+ }
  const p=e.target.closest("[data-product]"); if(p && !e.target.closest("[data-wish]")) playProductTransition(p.dataset.product);
  if(e.target.closest("[data-wish]")) toggleWish(e.target.closest("[data-wish]").dataset.wish);
  if(e.target.closest("[data-open='bag']"))cartView();
