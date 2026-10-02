@@ -57,7 +57,7 @@ function renderProducts(){
       <div class="product-image" data-product="${p.id}">
         <span class="product-badge">${p.badge||"CORE"}</span>
         <button class="heart ${wishlist.includes(p.id)?"on":""}" data-wish="${p.id}">${wishlist.includes(p.id)?"♥":"♡"}</button>
-        <img class="catalogue-product-image" src="${getColorImage(p, (p.colors&&p.colors[0])||"")}" alt="${p.name}">
+        <img class="catalogue-product-image" src="${getMainImages(p)[0]?.src||p.image||"assets/no-signal-logo.png"}" alt="${p.name}">
         ${Array.isArray(p.colors)&&p.colors.length>1?`
           <div class="catalogue-colors">
             ${p.colors.map((c,i)=>`
@@ -347,155 +347,135 @@ async function adminTab(tab="products"){
   }
   $("#adminContent").innerHTML=html;
   $("#newProduct")?.addEventListener("click",()=>{
-  $("#adminContent").innerHTML=`<form id="productForm" class="admin-form">
-    <input name="name" required placeholder="PRODUCT NAME">
-    <input name="price" required type="number" min="0" placeholder="PRICE PKR">
-    <input name="compareAt" type="number" min="0" placeholder="COMPARE-AT PRICE (OPTIONAL)">
-    <input name="category" required placeholder="CATEGORY (T-SHIRTS / HOODIES / ACCESSORIES)">
-    <input name="stock" required type="number" min="0" placeholder="STOCK">
-    <input name="sizes" placeholder="SIZES: S,M,L,XL">
-    <input name="colors" placeholder="COLORS: BLACK,WHITE">
-    <input name="badge" placeholder="BADGE (NEW / SALE / LIMITED)">
-    <label style="display:block;font-size:10px;letter-spacing:.08em;color:#999;margin-top:4px">MAIN PRODUCT IMAGE</label>
-    <input id="productImageFile" name="imageFile" type="file" accept="image/*">
-    <input id="productImageUrl" name="imageUrl" placeholder="OR IMAGE URL (OPTIONAL)">
-    <div id="productImagePreview" style="border:1px solid #333;padding:10px;margin:4px 0 10px;min-height:90px;display:flex;align-items:center;justify-content:center;color:#666;font-size:11px">IMAGE PREVIEW</div>
-    <label style="display:block;font-size:10px;letter-spacing:.08em;color:#999;margin-top:4px">PRODUCT IMAGE GALLERY</label>
-    <p class="muted" style="font-size:10px">Add multiple images. Each image can be assigned to a color. The first image is the catalogue image.</p>
-    <button type="button" class="button" id="addGalleryImage">+ ADD IMAGE</button>
-    <div id="galleryImageFields" style="margin-top:12px"></div>
+    $("#adminContent").innerHTML=`<form id="productForm" class="admin-form">
+      <input name="name" required placeholder="PRODUCT NAME">
+      <input name="price" required type="number" min="0" placeholder="PRICE PKR">
+      <input name="compareAt" type="number" min="0" placeholder="COMPARE-AT PRICE (OPTIONAL)">
+      <input name="category" required placeholder="CATEGORY (T-SHIRTS / HOODIES / ACCESSORIES)">
+      <input name="stock" required type="number" min="0" placeholder="STOCK">
+      <input name="sizes" placeholder="SIZES: S,M,L,XL">
+      <input name="colors" placeholder="COLORS: BLACK,WHITE,RED">
+      <input name="badge" placeholder="BADGE (NEW / SALE / LIMITED)">
 
-    <label style="display:block;font-size:10px;letter-spacing:.08em;color:#999;margin-top:18px">PRODUCT MUSIC (OPTIONAL)</label>
-    <input id="musicFile" type="file" accept="audio/*">
-    <input id="musicUrl" placeholder="OR MUSIC URL (OPTIONAL)">
-    <label style="display:block;font-size:10px;letter-spacing:.08em;color:#999;margin-top:8px">MUSIC VOLUME: <span id="musicVolumeValue">35%</span></label>
-    <input id="musicVolume" type="range" min="0" max="100" value="35" step="1">
+      <label style="display:block;font-size:10px;letter-spacing:.08em;color:#999;margin-top:14px">MAIN PRODUCT IMAGES</label>
+      <p class="muted" style="font-size:10px">Add as many main images as you want. These are the default product gallery.</p>
+      <button type="button" class="button" id="addMainImage">+ ADD MAIN IMAGE</button>
+      <div id="mainImageFields"></div>
 
-    <textarea name="description" placeholder="DESCRIPTION"></textarea>
-    <button>CREATE PRODUCT</button>
-  </form>`;
+      <label style="display:block;font-size:10px;letter-spacing:.08em;color:#999;margin-top:22px">COLOR-SPECIFIC IMAGES</label>
+      <p class="muted" style="font-size:10px">Add unlimited images. Each image gets its own color assignment. Example: BLACK → 3 images, WHITE → 4 images.</p>
+      <button type="button" class="button" id="addColorImage">+ ADD COLOR IMAGE</button>
+      <div id="colorImageFields"></div>
 
-  const fileInput=$("#productImageFile");
-  const urlInput=$("#productImageUrl");
-  const preview=$("#productImagePreview");
-  const mainFields=$("#mainImageFields");
-  const colorFields=$("#colorImageFields");
-  const musicFile=$("#musicFile");
-  const musicUrl=$("#musicUrl");
-  const musicVolume=$("#musicVolume");
-  const musicVolumeValue=$("#musicVolumeValue");
+      <label style="display:block;font-size:10px;letter-spacing:.08em;color:#999;margin-top:22px">PRODUCT MUSIC (OPTIONAL)</label>
+      <input id="musicFile" type="file" accept="audio/*">
+      <p class="muted" style="font-size:10px">Music is uploaded to the site's media storage. Up to 5 MB per product.</p>
+      <input id="musicUrl" placeholder="OR MUSIC URL (OPTIONAL)">
+      <label style="display:block;font-size:10px;letter-spacing:.08em;color:#999;margin-top:8px">MUSIC VOLUME: <span id="musicVolumeValue">35%</span></label>
+      <input id="musicVolume" type="range" min="0" max="100" value="35" step="1">
 
-  function fileToDataUrl(file){
-    return new Promise((resolve,reject)=>{
-      const reader=new FileReader();
-      reader.onload=()=>resolve(reader.result);
-      reader.onerror=reject;
-      reader.readAsDataURL(file);
-    });
-  }
+      <textarea name="description" placeholder="DESCRIPTION"></textarea>
+      <button>CREATE PRODUCT</button>
+    </form>`;
 
-  function colorOptions(){
-    return (($("#productForm [name='colors']").value||"BLACK").split(",").map(x=>x.trim()).filter(Boolean))
-      .map(c=>`<option value="${c}">${c}</option>`).join("");
-  }
+    const mainFields=$("#mainImageFields");
+    const colorFields=$("#colorImageFields");
+    const musicFile=$("#musicFile");
+    const musicUrl=$("#musicUrl");
+    const musicVolume=$("#musicVolume");
+    const musicVolumeValue=$("#musicVolumeValue");
 
-  function addMediaRow(container,type){
-    const row=document.createElement("div");
-    row.className="media-image-row";
-    row.style="border:1px solid #333;padding:12px;margin:8px 0";
-    row.innerHTML=`
-      <input type="file" class="media-file" accept="image/*">
-      <input type="text" class="media-url" placeholder="OR IMAGE URL" style="margin-top:7px">
-      ${type==="color"?`<select class="media-color" style="margin-top:7px;background:#0d0d0d;color:white;border:1px solid #333;padding:10px;width:100%">
-        <option value="">SELECT COLOR</option>${colorOptions()}
-      </select>`:"<div class='muted' style='font-size:10px;margin-top:7px'>MAIN IMAGE</div>"}
-      <div class="media-preview" style="border:1px solid #222;padding:8px;margin-top:8px;min-height:70px;color:#666;font-size:10px">IMAGE PREVIEW</div>
-      <button type="button" class="button remove-media" style="margin-top:8px">REMOVE</button>`;
-    container.appendChild(row);
+    function colorOptions(){
+      return (($("#productForm [name='colors']").value||"BLACK").split(",").map(x=>x.trim()).filter(Boolean))
+        .map(c=>`<option value="${c}">${c}</option>`).join("");
+    }
 
-    const file=row.querySelector(".media-file");
-    const url=row.querySelector(".media-url");
-    const preview=row.querySelector(".media-preview");
-    const show=src=>preview.innerHTML=`<img src="${src}" alt="" style="max-width:100%;max-height:170px;object-fit:contain;display:block">`;
+    function addMediaRow(container,type){
+      const row=document.createElement("div");
+      row.style="border:1px solid #333;padding:12px;margin:10px 0";
+      row.innerHTML=`
+        <input type="file" class="media-file" accept="image/*">
+        <input type="text" class="media-url" placeholder="OR IMAGE URL" style="margin-top:7px">
+        ${type==="color"?`<select class="media-color" style="margin-top:7px;background:#0d0d0d;color:white;border:1px solid #333;padding:10px;width:100%">
+          <option value="">SELECT COLOR</option>${colorOptions()}
+        </select>`:"<div class='muted' style='font-size:10px;margin-top:7px'>MAIN PRODUCT IMAGE</div>"}
+        <div class="media-preview" style="border:1px solid #222;padding:8px;margin-top:8px;min-height:60px;color:#666;font-size:10px">IMAGE PREVIEW</div>
+        <button type="button" class="button remove-media" style="margin-top:8px">REMOVE</button>`;
+      container.appendChild(row);
 
-    file.addEventListener("change",async()=>{
-      const f=file.files?.[0]; if(!f)return;
-      if(!f.type.startsWith("image/")){alert("Please choose an image.");file.value="";return;}
-      if(f.size>2*1024*1024){alert("Each image must be smaller than 2 MB.");file.value="";return;}
-      try{show(await fileToDataUrl(f));}catch(_){alert("Could not read image.");}
-    });
-    url.addEventListener("input",()=>{if(url.value.trim()&&!file.files?.length)show(url.value.trim())});
-    row.querySelector(".remove-media").onclick=()=>row.remove();
-  }
+      const file=row.querySelector(".media-file");
+      const url=row.querySelector(".media-url");
+      const preview=row.querySelector(".media-preview");
+      const show=src=>preview.innerHTML=`<img src="${src}" alt="" style="max-width:100%;max-height:160px;object-fit:contain;display:block">`;
 
-  $("#addMainImage").addEventListener("click",()=>addMediaRow(mainFields,"main"));
-  $("#addColorImage").addEventListener("click",()=>addMediaRow(colorFields,"color"));
+      file.addEventListener("change",async()=>{
+        const f=file.files?.[0]; if(!f)return;
+        if(!f.type.startsWith("image/")){alert("Please choose an image.");file.value="";return;}
+        if(f.size>10*1024*1024){alert("Each image must be 10 MB or smaller.");file.value="";return;}
+        try{show(URL.createObjectURL(f));}catch(_){}
+      });
+      url.addEventListener("input",()=>{if(url.value.trim()&&!file.files?.length)show(url.value.trim())});
+      row.querySelector(".remove-media").onclick=()=>row.remove();
+    }
 
-  musicVolume.addEventListener("input",()=>musicVolumeValue.textContent=`${musicVolume.value}%`);
+    $("#addMainImage").addEventListener("click",()=>addMediaRow(mainFields,"main"));
+    $("#addColorImage").addEventListener("click",()=>addMediaRow(colorFields,"color"));
+    musicVolume.addEventListener("input",()=>musicVolumeValue.textContent=`${musicVolume.value}%`);
 
-  $("#productForm").onsubmit=async e=>{
-    e.preventDefault();
-    const d=Object.fromEntries(new FormData(e.target));
-    const gallery=[];
+    async function uploadMedia(file){
+      const fd=new FormData();
+      fd.append("file",file);
+      const r=await fetch("/api/admin/media",{method:"POST",credentials:"same-origin",body:fd});
+      let out={}; try{out=await r.json()}catch(_){}
+      if(!r.ok)throw new Error(out.error||"Media upload failed");
+      return out.url;
+    }
 
     async function collect(container,type){
-      for(const row of container.querySelectorAll(".media-image-row")){
+      const gallery=[];
+      for(const row of container.querySelectorAll("div")){
+        if(!row.querySelector(".media-file"))continue;
         const file=row.querySelector(".media-file")?.files?.[0];
         const url=row.querySelector(".media-url")?.value.trim();
         const color=type==="color"?(row.querySelector(".media-color")?.value||""):"";
-        if(type==="color"&&!color){alert("Select a color for every color-specific image.");return false;}
+        if(type==="color"&&!color)throw new Error("Select a color for every color-specific image.");
         let src=url;
-        if(file){
-          if(file.size>2*1024*1024){alert("Each image must be smaller than 2 MB.");return false;}
-          src=await fileToDataUrl(file);
-        }
+        if(file)src=await uploadMedia(file);
         if(src)gallery.push({src,color,type});
       }
-      return true;
+      return gallery;
     }
 
-    if(!await collect(mainFields,"main"))return;
-    if(!await collect(colorFields,"color"))return;
+    $("#productForm").onsubmit=async e=>{
+      e.preventDefault();
+      const d=Object.fromEntries(new FormData(e.target));
+      try{
+        const gallery=[...(await collect(mainFields,"main")),...(await collect(colorFields,"color"))];
+        let music=d.musicUrl||"";
+        if(musicFile.files?.[0]){
+          if(musicFile.files[0].size>5*1024*1024)throw new Error("Music file must be 5 MB or smaller.");
+          music=await uploadMedia(musicFile.files[0]);
+        }
 
-    let music="";
-    const musicF=musicFile.files?.[0];
-    if(musicF){
-      if(!musicF.type.startsWith("audio/")){alert("Please choose an audio file.");return;}
-      if(musicF.size>5*1024*1024){alert("Music file must be 5 MB or smaller.");return;}
-      alert("5 MB local music uploads need the site's media-storage bucket before they can be saved. Please use a music URL for this save until that bucket is connected.");
-      return;
-    }else{
-      music=musicUrl.value.trim();
-    }
+        const image=(gallery.find(x=>x.type==="main")||gallery[0])?.src||"assets/no-signal-logo.png";
 
-    const image=(gallery.find(x=>x.type==="main")||gallery[0])?.src||"assets/no-signal-logo.png";
-
-    try{
-      await adminFetch('/api/admin/products',{
-        method:'POST',
-        headers:{'content-type':'application/json'},
-        body:JSON.stringify({
-          name:d.name,
-          price:+d.price,
-          compareAt:d.compareAt?+d.compareAt:null,
-          category:d.category,
-          stock:+d.stock,
-          sizes:(d.sizes||'S,M,L,XL').split(',').map(x=>x.trim()).filter(Boolean),
-          colors:(d.colors||'BLACK').split(',').map(x=>x.trim()).filter(Boolean),
-          badge:d.badge||'NEW',
-          description:d.description||'',
-          image,
-          gallery,
-          musicUrl:music,
-          musicVolume:Number(musicVolume.value)/100
-        })
-      });
-      await adminTab('products');
-      await loadProducts();
-    }catch(err){alert(err.message)}
-  };
-
-});
+        await adminFetch("/api/admin/products",{
+          method:"POST",
+          headers:{"content-type":"application/json"},
+          body:JSON.stringify({
+            name:d.name,price:+d.price,compareAt:d.compareAt?+d.compareAt:null,
+            category:d.category,stock:+d.stock,
+            sizes:(d.sizes||"S,M,L,XL").split(",").map(x=>x.trim()).filter(Boolean),
+            colors:(d.colors||"BLACK").split(",").map(x=>x.trim()).filter(Boolean),
+            badge:d.badge||"NEW",description:d.description||"",image,gallery,
+            musicUrl:music,musicVolume:Number(musicVolume.value)/100
+          })
+        });
+        await adminTab("products");
+        await loadProducts();
+      }catch(err){alert(err.message)}
+    };
+  });
   $$('[data-del-product]').forEach(b=>b.onclick=async()=>{if(!confirm('Delete this product?'))return;try{await adminFetch('/api/admin/products',{method:'DELETE',headers:{'content-type':'application/json'},body:JSON.stringify({id:b.dataset.delProduct})});await adminTab('products');await loadProducts()}catch(err){alert(err.message)}});
   $("#settingsForm")?.addEventListener("submit",async e=>{e.preventDefault();const d=Object.fromEntries(new FormData(e.target));d.shippingFee=+d.shippingFee;d.freeShippingAbove=+d.freeShippingAbove;try{const out=await adminFetch('/api/admin/settings',{method:'PUT',headers:{'content-type':'application/json'},body:JSON.stringify(d)});Object.assign(NO_SIGNAL.settings,out.settings);alert('Store details saved.')}catch(err){alert(err.message)}});
  }catch(err){if(err.message==='SESSION_EXPIRED'){openAdmin();return}$("#adminContent").innerHTML=`<p class="muted">${err.message}</p>`}
