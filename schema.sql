@@ -11,6 +11,7 @@ CREATE TABLE IF NOT EXISTS products (
   image TEXT,
   sizes_json TEXT NOT NULL DEFAULT '[]',
   colors_json TEXT NOT NULL DEFAULT '[]',
+  color_images_json TEXT NOT NULL DEFAULT '{}',
   stock INTEGER NOT NULL DEFAULT 0,
   featured INTEGER NOT NULL DEFAULT 0,
   published INTEGER NOT NULL DEFAULT 1,
