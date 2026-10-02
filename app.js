@@ -80,7 +80,91 @@ async function adminTab(tab="products"){
    <input name="brand" value="${s.brand||''}" placeholder="BRAND NAME"><input name="subbrand" value="${s.subbrand||''}" placeholder="SUB-BRAND"><input name="tagline" value="${s.tagline||''}" placeholder="TAGLINE"><input name="email" value="${s.email||''}" placeholder="EMAIL"><input name="phone" value="${s.phone||''}" placeholder="PHONE"><input name="whatsapp" value="${s.whatsapp||''}" placeholder="WHATSAPP"><input name="instagram" value="${s.instagram||''}" placeholder="INSTAGRAM URL / @HANDLE"><input name="tiktok" value="${s.tiktok||''}" placeholder="TIKTOK URL / @HANDLE"><input name="facebook" value="${s.facebook||''}" placeholder="FACEBOOK URL"><input name="youtube" value="${s.youtube||''}" placeholder="YOUTUBE URL"><input name="address" value="${s.address||''}" placeholder="BUSINESS / RETURN ADDRESS"><input name="businessHours" value="${s.businessHours||''}" placeholder="BUSINESS HOURS"><input name="shippingFee" value="${s.shippingFee??''}" placeholder="STANDARD SHIPPING FEE (PKR)"><input name="freeShippingAbove" value="${s.freeShippingAbove??''}" placeholder="FREE SHIPPING ABOVE (PKR)"><button>SAVE ALL STORE DETAILS</button></form>`;
   }
   $("#adminContent").innerHTML=html;
-  $("#newProduct")?.addEventListener("click",()=>{ $("#adminContent").innerHTML=`<form id="productForm" class="admin-form"><input name="name" required placeholder="PRODUCT NAME"><input name="price" required type="number" placeholder="PRICE PKR"><input name="category" required placeholder="CATEGORY (T-SHIRTS / HOODIES / ACCESSORIES)"><input name="stock" required type="number" placeholder="STOCK"><input name="sizes" placeholder="SIZES: S,M,L,XL"><input name="badge" placeholder="BADGE"><textarea name="description" placeholder="DESCRIPTION"></textarea><button>CREATE PRODUCT</button></form>`;$("#productForm").onsubmit=async e=>{e.preventDefault();const d=Object.fromEntries(new FormData(e.target));try{await adminFetch('/api/admin/products',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({name:d.name,price:+d.price,category:d.category,stock:+d.stock,sizes:(d.sizes||'S,M,L,XL').split(',').map(x=>x.trim()),badge:d.badge||'NEW',description:d.description||'',image:'assets/no-signal-logo.png'})});await adminTab('products');await loadProducts()}catch(err){alert(err.message)}}});
+  $("#newProduct")?.addEventListener("click",()=>{
+  $("#adminContent").innerHTML=`<form id="productForm" class="admin-form">
+    <input name="name" required placeholder="PRODUCT NAME">
+    <input name="price" required type="number" min="0" placeholder="PRICE PKR">
+    <input name="compareAt" type="number" min="0" placeholder="COMPARE-AT PRICE (OPTIONAL)">
+    <input name="category" required placeholder="CATEGORY (T-SHIRTS / HOODIES / ACCESSORIES)">
+    <input name="stock" required type="number" min="0" placeholder="STOCK">
+    <input name="sizes" placeholder="SIZES: S,M,L,XL">
+    <input name="colors" placeholder="COLORS: BLACK,WHITE">
+    <input name="badge" placeholder="BADGE (NEW / SALE / LIMITED)">
+    <label style="display:block;font-size:10px;letter-spacing:.08em;color:#999;margin-top:4px">PRODUCT IMAGE</label>
+    <input id="productImageFile" name="imageFile" type="file" accept="image/*">
+    <input id="productImageUrl" name="imageUrl" placeholder="OR IMAGE URL (OPTIONAL)">
+    <div id="productImagePreview" style="border:1px solid #333;padding:10px;margin:4px 0 10px;min-height:90px;display:flex;align-items:center;justify-content:center;color:#666;font-size:11px">IMAGE PREVIEW</div>
+    <textarea name="description" placeholder="DESCRIPTION"></textarea>
+    <button>CREATE PRODUCT</button>
+  </form>`;
+
+  const fileInput=$("#productImageFile");
+  const urlInput=$("#productImageUrl");
+  const preview=$("#productImagePreview");
+  let selectedImage="assets/no-signal-logo.png";
+
+  function showPreview(src){
+    selectedImage=src;
+    preview.innerHTML=`<img src="${src}" alt="Product preview" style="max-width:100%;max-height:220px;object-fit:contain;display:block">`;
+  }
+
+  fileInput.addEventListener("change",()=>{
+    const file=fileInput.files?.[0];
+    if(!file)return;
+    if(!file.type.startsWith("image/")){
+      alert("Please choose an image file.");
+      fileInput.value="";
+      return;
+    }
+    if(file.size>2*1024*1024){
+      alert("Please use an image smaller than 2 MB.");
+      fileInput.value="";
+      return;
+    }
+    const reader=new FileReader();
+    reader.onload=()=>showPreview(reader.result);
+    reader.readAsDataURL(file);
+  });
+
+  urlInput.addEventListener("input",()=>{
+    const url=urlInput.value.trim();
+    if(url && !fileInput.files?.length) showPreview(url);
+    if(!url && !fileInput.files?.length){
+      selectedImage="assets/no-signal-logo.png";
+      preview.textContent="IMAGE PREVIEW";
+    }
+  });
+
+  $("#productForm").onsubmit=async e=>{
+    e.preventDefault();
+    const d=Object.fromEntries(new FormData(e.target));
+    const image=fileInput.files?.length ? selectedImage : (urlInput.value.trim() || "assets/no-signal-logo.png");
+
+    try{
+      await adminFetch('/api/admin/products',{
+        method:'POST',
+        headers:{'content-type':'application/json'},
+        body:JSON.stringify({
+          name:d.name,
+          price:+d.price,
+          compareAt:d.compareAt?+d.compareAt:null,
+          category:d.category,
+          stock:+d.stock,
+          sizes:(d.sizes||'S,M,L,XL').split(',').map(x=>x.trim()).filter(Boolean),
+          colors:(d.colors||'BLACK').split(',').map(x=>x.trim()).filter(Boolean),
+          badge:d.badge||'NEW',
+          description:d.description||'',
+          image
+        })
+      });
+
+      await adminTab('products');
+      await loadProducts();
+    }catch(err){
+      alert(err.message);
+    }
+  };
+});
   $$('[data-del-product]').forEach(b=>b.onclick=async()=>{if(!confirm('Delete this product?'))return;try{await adminFetch('/api/admin/products',{method:'DELETE',headers:{'content-type':'application/json'},body:JSON.stringify({id:b.dataset.delProduct})});await adminTab('products');await loadProducts()}catch(err){alert(err.message)}});
   $("#settingsForm")?.addEventListener("submit",async e=>{e.preventDefault();const d=Object.fromEntries(new FormData(e.target));d.shippingFee=+d.shippingFee;d.freeShippingAbove=+d.freeShippingAbove;try{const out=await adminFetch('/api/admin/settings',{method:'PUT',headers:{'content-type':'application/json'},body:JSON.stringify(d)});Object.assign(NO_SIGNAL.settings,out.settings);alert('Store details saved.')}catch(err){alert(err.message)}});
  }catch(err){if(err.message==='SESSION_EXPIRED'){openAdmin();return}$("#adminContent").innerHTML=`<p class="muted">${err.message}</p>`}
