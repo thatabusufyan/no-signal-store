@@ -30,7 +30,20 @@ function renderProducts(){
       <div class="product-image" data-product="${p.id}">
         <span class="product-badge">${p.badge||"CORE"}</span>
         <button class="heart ${wishlist.includes(p.id)?"on":""}" data-wish="${p.id}">${wishlist.includes(p.id)?"♥":"♡"}</button>
-        <img src="${p.image}" alt="${p.name}">
+        <img class="catalogue-product-image" src="${p.image}" alt="${p.name}">
+        ${Array.isArray(p.colors)&&p.colors.length>1?`
+          <div class="catalogue-colors">
+            ${p.colors.map((c,i)=>`
+              <button type="button"
+                class="catalogue-color ${i===0?"selected":""}"
+                data-catalogue-color="${c}"
+                data-product-color="${p.id}"
+                title="${c}">
+                ${c}
+              </button>
+            `).join("")}
+          </div>
+        `:""}
       </div>
       <div class="product-info" data-product="${p.id}">
         <div class="product-name">${p.name}</div><div class="product-cat">${p.category}</div>
@@ -45,14 +58,127 @@ function closeDrawer(){$("#drawer").classList.remove("open");$("#drawer").setAtt
 
 function productDetail(id){
  const p=products.find(x=>x.id===id); if(!p)return;
- openDrawer(`<p class="eyebrow">${p.category} / ${p.id}</p><h2>${p.name}</h2><div class="drawer-img"><img src="${p.image}" alt="${p.name}"></div><div class="drawer-price">${money(p.price)}</div><p class="muted">${p.description}</p><p class="eyebrow">SELECT SIZE</p><div class="size-row">${p.sizes.map((s,i)=>`<button class="${i===0?"selected":""}" data-size="${s}">${s}</button>`).join("")}</div><button class="button button-lime full" id="addToBag" data-id="${p.id}">ADD TO BAG <span>+</span></button>`);
+
+ const sizes=Array.isArray(p.sizes)&&p.sizes.length?p.sizes:["S","M","L","XL"];
+ const colors=Array.isArray(p.colors)&&p.colors.length?p.colors:["BLACK"];
+
+ openDrawer(`
+  <p class="eyebrow">${p.category} / ${p.id}</p>
+  <h2>${p.name}</h2>
+  <div class="drawer-img">
+    <img id="detailProductImage" src="${p.image}" alt="${p.name}">
+  </div>
+  <div class="drawer-price">${money(p.price)}</div>
+  <p class="muted">${p.description||""}</p>
+
+  <p class="eyebrow">SELECT SIZE</p>
+  <div class="size-row">
+    ${sizes.map((s,i)=>`<button class="${i===0?"selected":""}" data-size="${s}">${s}</button>`).join("")}
+  </div>
+
+  <p class="eyebrow" style="margin-top:20px">SELECT COLOR</p>
+  <div class="size-row">
+    ${colors.map((c,i)=>`<button class="${i===0?"selected":""}" data-color="${c}">${c}</button>`).join("")}
+  </div>
+
+  <button class="button button-lime full" id="addToBag"
+    data-id="${p.id}"
+    data-selected-size="${sizes[0]}"
+    data-selected-color="${colors[0]}">
+    ADD TO BAG <span>+</span>
+  </button>
+ `);
+
+ const drawer=$("#drawerContent");
+
+ drawer.querySelectorAll("[data-size]").forEach(btn=>{
+   btn.addEventListener("click",()=>{
+     drawer.querySelectorAll("[data-size]").forEach(x=>x.classList.remove("selected"));
+     btn.classList.add("selected");
+     $("#addToBag").dataset.selectedSize=btn.dataset.size;
+   });
+ });
+
+ drawer.querySelectorAll("[data-color]").forEach(btn=>{
+   btn.addEventListener("click",()=>{
+     drawer.querySelectorAll("[data-color]").forEach(x=>x.classList.remove("selected"));
+     btn.classList.add("selected");
+     $("#addToBag").dataset.selectedColor=btn.dataset.color;
+   });
+ });
 }
+
 function cartView(){
- let total=cart.reduce((a,x)=>a+x.price*x.qty,0), shipping=total>=NO_SIGNAL.settings.freeShippingAbove||!cart.length?0:NO_SIGNAL.settings.shippingFee;
- openDrawer(`<p class="eyebrow">YOUR BAG</p><h2>${cart.length?countBag()+" ITEMS":"EMPTY SIGNAL"}</h2><div>${cart.map(x=>`<div class="cart-line"><img src="${x.image}" alt=""><div><b>${x.name}</b><small style="display:block;color:#666;margin-top:5px">${money(x.price)}</small><div class="qty"><button data-minus="${x.id}">−</button><span>${x.qty}</span><button data-plus="${x.id}">+</button></div></div><button class="close" style="position:static;font-size:20px" data-remove="${x.id}">×</button></div>`).join("")}</div>${cart.length?`<div style="padding-top:25px"><p class="muted">SUBTOTAL <span style="float:right;color:white">${money(total)}</span></p><p class="muted">SHIPPING <span style="float:right;color:white">${shipping?money(shipping):"FREE"}</span></p><h3>TOTAL <span style="float:right;color:var(--lime)">${money(total+shipping)}</span></h3><button class="button button-lime full" id="checkout">CHECKOUT <span>→</span></button></div>`:""}`);
+ let total=cart.reduce((a,x)=>a+x.price*x.qty,0),
+     shipping=total>=NO_SIGNAL.settings.freeShippingAbove||!cart.length?0:NO_SIGNAL.settings.shippingFee;
+
+ openDrawer(`
+  <p class="eyebrow">YOUR BAG</p>
+  <h2>${cart.length?countBag()+" ITEMS":"EMPTY SIGNAL"}</h2>
+
+  <div>
+   ${cart.map((x,i)=>`
+    <div class="cart-line">
+      <img src="${x.image}" alt="${x.name}">
+      <div>
+        <b>${x.name}</b>
+        <small style="display:block;color:#999;margin-top:5px">
+          SIZE: ${x.size||"—"} · COLOR: ${x.color||"—"}
+        </small>
+        <small style="display:block;color:#666;margin-top:5px">
+          ${money(x.price)}
+        </small>
+
+        <div class="qty">
+          <button data-minus="${x.id}" data-cart-index="${i}">−</button>
+          <span>${x.qty}</span>
+          <button data-plus="${x.id}" data-cart-index="${i}">+</button>
+        </div>
+      </div>
+
+      <button class="close" style="position:static;font-size:20px"
+        data-remove="${x.id}" data-cart-index="${i}">×</button>
+    </div>
+   `).join("")}
+  </div>
+
+  ${cart.length?`
+   <div style="padding-top:25px">
+    <p class="muted">SUBTOTAL <span style="float:right;color:white">${money(total)}</span></p>
+    <p class="muted">SHIPPING <span style="float:right;color:white">${shipping?money(shipping):"FREE"}</span></p>
+    <h3>TOTAL <span style="float:right;color:var(--lime)">${money(total+shipping)}</span></h3>
+    <button class="button button-lime full" id="checkout">CHECKOUT <span>→</span></button>
+   </div>
+  `:""}
+ `);
 }
-function toggleWish(id){wishlist=wishlist.includes(id)?wishlist.filter(x=>x!==id):[...wishlist,id];save();renderProducts()}
-function add(id){const p=products.find(x=>x.id===id);if(!p)return;const item=cart.find(x=>x.id===id);item?item.qty++:cart.push({...p,qty:1});save();updateCounts();cartView()}
+
+function toggleWish(id){
+ wishlist=wishlist.includes(id)?wishlist.filter(x=>x!==id):[...wishlist,id];
+ save();
+ renderProducts();
+}
+
+function add(id,size,color){
+ const p=products.find(x=>x.id===id);
+ if(!p)return;
+
+ size=size||(p.sizes&&p.sizes[0])||"";
+ color=color||(p.colors&&p.colors[0])||"";
+
+ // Same product + different size/color = separate cart line
+ const item=cart.find(x=>x.id===id&&x.size===size&&x.color===color);
+
+ if(item){
+   item.qty++;
+ }else{
+   cart.push({...p,qty:1,size,color});
+ }
+
+ save();
+ updateCounts();
+ cartView();
+}
 
 function checkout(){
  if(!cart.length)return;
@@ -60,7 +186,7 @@ function checkout(){
  const shipping=subtotal>=NO_SIGNAL.settings.freeShippingAbove?0:NO_SIGNAL.settings.shippingFee;
  const total=subtotal+shipping;
  openDrawer(`<p class="eyebrow">CHECKOUT / ${money(total)}</p><h2>YOUR DETAILS.</h2><form id="checkoutForm" class="admin-form"><input name="name" required placeholder="FULL NAME"><input name="phone" required placeholder="PHONE"><input name="email" required type="email" placeholder="EMAIL"><input name="city" required placeholder="CITY"><textarea name="address" required placeholder="COMPLETE DELIVERY ADDRESS"></textarea><input name="postalCode" placeholder="POSTAL CODE"><select name="paymentMethod" style="background:#0d0d0d;border:1px solid #333;color:white;padding:13px;font:10px Space Mono"><option value="cod">Cash on Delivery</option><option value="online">Online Payment</option></select><button>PLACE ORDER</button></form>`);
- $("#checkoutForm").onsubmit=async e=>{e.preventDefault();const data=Object.fromEntries(new FormData(e.target));const payload={customer:data,paymentMethod:data.paymentMethod,shipping,items:cart.map(x=>({productId:x.id,name:x.name,size:x.size||x.sizes?.[0],color:x.color||x.colors?.[0],quantity:x.qty,unitPrice:x.price}))};try{const r=await fetch('/api/orders',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(payload)});const out=await r.json();if(!r.ok)throw new Error(out.error||'Order failed');const orderId=out.orderId;cart=[];save();updateCounts();openDrawer(`<p class="eyebrow">ORDER CONFIRMED</p><h2>THANK YOU.</h2><p class="muted">Your NO SIGNAL order has been received.</p><div style="border:1px solid var(--lime);padding:20px;margin-top:30px">ORDER NUMBER<br><strong style="font-size:24px;color:var(--lime)">${orderId}</strong></div>`)}catch(err){alert(err.message)}}
+ $("#checkoutForm").onsubmit=async e=>{e.preventDefault();const data=Object.fromEntries(new FormData(e.target));const payload={customer:data,paymentMethod:data.paymentMethod,shipping,items:cart.map(x=>({productId:x.id,name:x.name,size:x.size||"",color:x.color||"",quantity:x.qty,unitPrice:x.price}))};try{const r=await fetch('/api/orders',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(payload)});const out=await r.json();if(!r.ok)throw new Error(out.error||'Order failed');const orderId=out.orderId;cart=[];save();updateCounts();openDrawer(`<p class="eyebrow">ORDER CONFIRMED</p><h2>THANK YOU.</h2><p class="muted">Your NO SIGNAL order has been received.</p><div style="border:1px solid var(--lime);padding:20px;margin-top:30px">ORDER NUMBER<br><strong style="font-size:24px;color:var(--lime)">${orderId}</strong></div>`)}catch(err){alert(err.message)}}
 }
 async function adminFetch(url, options={}){const r=await fetch(url,{credentials:'same-origin',...options});let data={};try{data=await r.json()}catch{}if(r.status===401){adminUnlocked=false;throw new Error('SESSION_EXPIRED')}if(!r.ok)throw new Error(data.error||'Request failed');return data}
 
@@ -73,7 +199,80 @@ async function adminTab(tab="products"){
    html=`<div class="admin-row"><b>ADD NEW PRODUCT</b><button class="button button-lime" id="newProduct">+ ADD</button></div>${ps.map(p=>`<div class="admin-row"><div><b>${p.name}</b><small>${p.category} · ${money(p.price)}</small></div><span>${p.stock} IN STOCK</span><button data-del-product="${p.id}" style="background:none;border:0;color:#ff3b30">DELETE</button></div>`).join("")}`;
   } else if(tab==="orders"){
    const os=await adminFetch('/api/admin/orders');
-   html=os.length?os.map(o=>`<div class="admin-row"><div><b>${o.id}</b><small>${o.customerName||'Customer'} · ${o.paymentMethod||''}</small></div><span>${money(o.total)}</span><span>${o.status||'received'}</span></div>`).join(""):`<p class="muted">No orders yet.</p>`;
+
+   html=os.length?`
+     <div>
+       ${os.map((o,i)=>`
+         <div class="admin-row order-row" data-order-index="${i}" style="cursor:pointer">
+           <div>
+             <b>${o.id}</b>
+             <small>
+               ${o.customerName||"Customer"}
+               · ${o.phone||"No phone"}
+               · ${o.paymentMethod||"payment"}
+             </small>
+           </div>
+           <span>${money(o.total)}</span>
+           <span>${o.status||"received"}</span>
+         </div>
+       `).join("")}
+     </div>
+   `:`<p class="muted">No orders yet.</p>`;
+
+   $("#adminContent").innerHTML=html;
+
+   $("#adminContent").querySelectorAll("[data-order-index]").forEach(row=>{
+     row.addEventListener("click",()=>{
+       const o=os[Number(row.dataset.orderIndex)];
+       const items=o.items||[];
+
+       openDrawer(`
+         <p class="eyebrow">ORDER DETAILS</p>
+         <h2>${o.id}</h2>
+
+         <div style="border:1px solid #333;padding:18px;margin:20px 0">
+           <p class="eyebrow">CUSTOMER</p>
+           <p><b>${o.customerName||"—"}</b></p>
+           <p class="muted">${o.phone||"—"}</p>
+           <p class="muted">${o.email||"—"}</p>
+           <p class="muted">
+             ${o.address||"—"}${o.city?`, ${o.city}`:""}${o.postalCode?` ${o.postalCode}`:""}
+           </p>
+         </div>
+
+         <p class="eyebrow">ITEMS ORDERED</p>
+
+         <div>
+           ${items.map(item=>`
+             <div style="border-bottom:1px solid #222;padding:14px 0">
+               <b>${item.name}</b>
+               <small style="display:block;color:#999;margin-top:5px">
+                 SIZE: ${item.size||"—"} · COLOR: ${item.color||"—"} · QTY: ${item.quantity}
+               </small>
+               <small style="display:block;color:#666;margin-top:4px">
+                 ${money(item.unitPrice)} each
+               </small>
+             </div>
+           `).join("")}
+         </div>
+
+         <div style="margin-top:20px">
+           <p class="muted">SUBTOTAL <span style="float:right;color:white">${money(o.subtotal)}</span></p>
+           <p class="muted">SHIPPING <span style="float:right;color:white">${o.shipping?money(o.shipping):"FREE"}</span></p>
+           <h3>TOTAL <span style="float:right;color:var(--lime)">${money(o.total)}</span></h3>
+         </div>
+
+         <div style="border-top:1px solid #333;padding-top:20px;margin-top:20px">
+           <p class="muted">PAYMENT: <b style="color:white">${o.paymentMethod||"—"}</b></p>
+           <p class="muted">PAYMENT STATUS: <b style="color:white">${o.paymentStatus||"pending"}</b></p>
+           <p class="muted">FULFILLMENT: <b style="color:white">${o.fulfillmentStatus||"received"}</b></p>
+           ${o.trackingNumber?`<p class="muted">TRACKING: <b style="color:white">${o.trackingNumber}</b></p>`:""}
+           ${o.ceeprintoOrderId?`<p class="muted">CEEPRINTO: <b style="color:white">${o.ceeprintoOrderId}</b></p>`:""}
+           ${o.createdAt?`<p class="muted">ORDERED: <b style="color:white">${new Date(o.createdAt).toLocaleString()}</b></p>`:""}
+         </div>
+       `);
+     });
+   });
   } else {
    const ss=await adminFetch('/api/admin/settings'); const s={...NO_SIGNAL.settings,...ss}; Object.assign(NO_SIGNAL.settings,s);
    html=`<p class="muted" style="margin-bottom:22px">Edit your store details here. Changes are saved to the live database.</p><form id="settingsForm" class="admin-form">
@@ -187,7 +386,7 @@ document.addEventListener("click",e=>{
  if(e.target.id==="closeDrawer"||e.target.classList.contains("drawer-backdrop"))closeDrawer();
  if(e.target.closest("[data-close='search']"))closeModal("search");
  if(e.target.closest("[data-close='admin']"))closeModal("admin");
- if(e.target.id==="addToBag")add(e.target.dataset.id);
+ if(e.target.id==="addToBag")add(e.target.dataset.id,e.target.dataset.selectedSize,e.target.dataset.selectedColor);
  if(e.target.id==="checkout")checkout();
  if(e.target.closest("[data-minus]")){const i=cart.find(x=>x.id===e.target.closest("[data-minus]").dataset.minus);if(i){i.qty--;if(i.qty<=0)cart=cart.filter(x=>x.id!==i.id);save();cartView();updateCounts()}}
  if(e.target.closest("[data-plus]")){const i=cart.find(x=>x.id===e.target.closest("[data-plus]").dataset.plus);if(i){i.qty++;save();cartView();updateCounts()}}
