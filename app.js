@@ -22,12 +22,27 @@ function save(){localStorage.setItem("ns_cart",JSON.stringify(cart));localStorag
 function countBag(){return cart.reduce((a,x)=>a+x.qty,0)}
 function updateCounts(){$("#bagCount").textContent=countBag();$("#wishCount").textContent=wishlist.length}
 
+function normalizeGallery(p){
+  if(Array.isArray(p?.gallery)) return p.gallery.filter(x=>x&&x.src);
+  if(Array.isArray(p?.images)) return p.images.filter(x=>x&&x.src);
+  const legacy=p?.colorImages||{};
+  const out=[];
+  Object.entries(legacy).forEach(([color,src])=>{
+    if(src) out.push({src,color});
+  });
+  if(!out.length&&p?.image) out.push({src:p.image,color:""});
+  return out;
+}
+
+function getColorImages(p,color){
+  const gallery=normalizeGallery(p);
+  const wanted=String(color||"").toLowerCase();
+  const matching=gallery.filter(x=>String(x.color||"").toLowerCase()===wanted);
+  return matching.length ? matching : gallery;
+}
+
 function getColorImage(p,color){
-  return p?.colorImages?.[color]
-    || p?.colorImages?.[String(color).toUpperCase()]
-    || p?.colorImages?.[String(color).toLowerCase()]
-    || p?.image
-    || "assets/no-signal-logo.png";
+  return getColorImages(p,color)[0]?.src || p?.image || "assets/no-signal-logo.png";
 }
 
 function renderProducts(){
@@ -38,7 +53,7 @@ function renderProducts(){
       <div class="product-image" data-product="${p.id}">
         <span class="product-badge">${p.badge||"CORE"}</span>
         <button class="heart ${wishlist.includes(p.id)?"on":""}" data-wish="${p.id}">${wishlist.includes(p.id)?"♥":"♡"}</button>
-        <img class="catalogue-product-image" src="${getColorImage(p, (p.colors&&p.colors[0])||"BLACK")}" alt="${p.name}">
+        <img class="catalogue-product-image" src="${getColorImage(p, (p.colors&&p.colors[0])||"")}" alt="${p.name}">
         ${Array.isArray(p.colors)&&p.colors.length>1?`
           <div class="catalogue-colors">
             ${p.colors.map((c,i)=>`
@@ -62,20 +77,37 @@ function renderProducts(){
 }
 
 function openDrawer(html){$("#drawerContent").innerHTML=html;$("#drawer").classList.add("open");$("#drawer").setAttribute("aria-hidden","false")}
-function closeDrawer(){$("#drawer").classList.remove("open");$("#drawer").setAttribute("aria-hidden","true")}
+function closeDrawer(){
+  if(window.noSignalProductAudio){try{window.noSignalProductAudio.pause();window.noSignalProductAudio.currentTime=0}catch(_){} window.noSignalProductAudio=null;}
+  $("#drawer").classList.remove("open");$("#drawer").setAttribute("aria-hidden","true")
+}
 
 function productDetail(id){
  const p=products.find(x=>x.id===id); if(!p)return;
 
  const sizes=Array.isArray(p.sizes)&&p.sizes.length?p.sizes:["S","M","L","XL"];
  const colors=Array.isArray(p.colors)&&p.colors.length?p.colors:["BLACK"];
+ const gallery=normalizeGallery(p);
+ const firstColor=colors[0]||"";
+ const initialImages=getColorImages(p,firstColor);
+
+ if(window.noSignalProductAudio){try{window.noSignalProductAudio.pause();window.noSignalProductAudio.currentTime=0}catch(_){}}
+ window.noSignalProductAudio=null;
 
  openDrawer(`
   <p class="eyebrow">${p.category} / ${p.id}</p>
   <h2>${p.name}</h2>
   <div class="drawer-img">
-    <img id="detailProductImage" src="${getColorImage(p, colors[0])}" alt="${p.name}">
+    <img id="detailProductImage" src="${initialImages[0]?.src||p.image}" alt="${p.name}">
   </div>
+
+  <div id="productImageRail" style="display:flex;gap:8px;overflow-x:auto;padding:12px 0">
+    ${initialImages.map((img,i)=>`
+      <button type="button" class="product-thumb ${i===0?"selected":""}" data-gallery-src="${img.src}" style="flex:0 0 68px;height:68px;padding:3px;background:#111;border:1px solid ${i===0?"var(--lime)":"#333"}">
+        <img src="${img.src}" alt="" style="width:100%;height:100%;object-fit:cover">
+      </button>`).join("")}
+  </div>
+
   <div class="drawer-price">${money(p.price)}</div>
   <p class="muted">${p.description||""}</p>
 
@@ -92,12 +124,23 @@ function productDetail(id){
   <button class="button button-lime full" id="addToBag"
     data-id="${p.id}"
     data-selected-size="${sizes[0]}"
-    data-selected-color="${colors[0]}">
+    data-selected-color="${firstColor}">
     ADD TO BAG <span>+</span>
   </button>
  `);
 
  const drawer=$("#drawerContent");
+
+ function renderGallery(color){
+   const imgs=getColorImages(p,color);
+   const main=$("#detailProductImage");
+   const rail=$("#productImageRail");
+   if(main) main.src=imgs[0]?.src||p.image;
+   if(rail) rail.innerHTML=imgs.map((img,i)=>`
+     <button type="button" class="product-thumb ${i===0?"selected":""}" data-gallery-src="${img.src}" style="flex:0 0 68px;height:68px;padding:3px;background:#111;border:1px solid ${i===0?"var(--lime)":"#333"}">
+       <img src="${img.src}" alt="" style="width:100%;height:100%;object-fit:cover">
+     </button>`).join("");
+ }
 
  drawer.querySelectorAll("[data-size]").forEach(btn=>{
    btn.addEventListener("click",()=>{
@@ -112,10 +155,26 @@ function productDetail(id){
      drawer.querySelectorAll("[data-color]").forEach(x=>x.classList.remove("selected"));
      btn.classList.add("selected");
      $("#addToBag").dataset.selectedColor=btn.dataset.color;
-     const detailImage=$("#detailProductImage");
-     if(detailImage) detailImage.src=getColorImage(p,btn.dataset.color);
+     renderGallery(btn.dataset.color);
    });
  });
+
+ drawer.addEventListener("click",e=>{
+   const thumb=e.target.closest("[data-gallery-src]");
+   if(!thumb)return;
+   const img=$("#detailProductImage");
+   if(img)img.src=thumb.dataset.gallerySrc;
+   drawer.querySelectorAll("[data-gallery-src]").forEach(x=>x.style.borderColor="#333");
+   thumb.style.borderColor="var(--lime)";
+ });
+
+ if(p.musicUrl){
+   const audio=new Audio(p.musicUrl);
+   audio.loop=true;
+   audio.volume=Math.max(0,Math.min(1,Number(p.musicVolume ?? 0.35)));
+   window.noSignalProductAudio=audio;
+   audio.play().catch(()=>{});
+ }
 }
 
 function cartView(){
@@ -303,8 +362,17 @@ async function adminTab(tab="products"){
     <input id="productImageFile" name="imageFile" type="file" accept="image/*">
     <input id="productImageUrl" name="imageUrl" placeholder="OR IMAGE URL (OPTIONAL)">
     <div id="productImagePreview" style="border:1px solid #333;padding:10px;margin:4px 0 10px;min-height:90px;display:flex;align-items:center;justify-content:center;color:#666;font-size:11px">IMAGE PREVIEW</div>
-    <button type="button" class="button" id="buildColorImages">SET COLOR IMAGES</button>
-    <div id="colorImageFields" style="margin-top:12px"></div>
+    <label style="display:block;font-size:10px;letter-spacing:.08em;color:#999;margin-top:4px">PRODUCT IMAGE GALLERY</label>
+    <p class="muted" style="font-size:10px">Add multiple images. Each image can be assigned to a color. The first image is the catalogue image.</p>
+    <button type="button" class="button" id="addGalleryImage">+ ADD IMAGE</button>
+    <div id="galleryImageFields" style="margin-top:12px"></div>
+
+    <label style="display:block;font-size:10px;letter-spacing:.08em;color:#999;margin-top:18px">PRODUCT MUSIC (OPTIONAL)</label>
+    <input id="musicFile" type="file" accept="audio/*">
+    <input id="musicUrl" placeholder="OR MUSIC URL (OPTIONAL)">
+    <label style="display:block;font-size:10px;letter-spacing:.08em;color:#999;margin-top:8px">MUSIC VOLUME: <span id="musicVolumeValue">35%</span></label>
+    <input id="musicVolume" type="range" min="0" max="100" value="35" step="1">
+
     <textarea name="description" placeholder="DESCRIPTION"></textarea>
     <button>CREATE PRODUCT</button>
   </form>`;
@@ -312,8 +380,11 @@ async function adminTab(tab="products"){
   const fileInput=$("#productImageFile");
   const urlInput=$("#productImageUrl");
   const preview=$("#productImagePreview");
-  const colorFields=$("#colorImageFields");
-  let selectedImage="assets/no-signal-logo.png";
+  const galleryFields=$("#galleryImageFields");
+  const musicFile=$("#musicFile");
+  const musicUrl=$("#musicUrl");
+  const musicVolume=$("#musicVolume");
+  const musicVolumeValue=$("#musicVolumeValue");
 
   function imageFileToDataUrl(file){
     return new Promise((resolve,reject)=>{
@@ -324,91 +395,69 @@ async function adminTab(tab="products"){
     });
   }
 
-  function showPreview(src){
-    selectedImage=src;
-    preview.innerHTML=`<img src="${src}" alt="Product preview" style="max-width:100%;max-height:220px;object-fit:contain;display:block">`;
+  function addGalleryRow(src="",color=""){
+    const row=document.createElement("div");
+    row.className="gallery-image-row";
+    row.style="border:1px solid #333;padding:12px;margin:8px 0";
+    row.innerHTML=`
+      <input type="file" class="gallery-file" accept="image/*">
+      <input type="text" class="gallery-url" placeholder="OR IMAGE URL" value="${src.startsWith("http")?src:""}" style="margin-top:7px">
+      <select class="gallery-color" style="margin-top:7px;background:#0d0d0d;color:white;border:1px solid #333;padding:10px">
+        <option value="">ALL / UNASSIGNED</option>
+        ${(($("#productForm [name='colors']").value||"BLACK").split(",").map(x=>x.trim()).filter(Boolean)).map(c=>`<option value="${c}" ${c===color?"selected":""}>${c}</option>`).join("")}
+      </select>
+      <div class="gallery-preview" style="border:1px solid #222;padding:8px;margin-top:8px;min-height:60px;color:#666;font-size:10px">IMAGE PREVIEW</div>
+      <button type="button" class="button remove-gallery" style="margin-top:8px">REMOVE</button>`;
+    galleryFields.appendChild(row);
+
+    const file=row.querySelector(".gallery-file");
+    const url=row.querySelector(".gallery-url");
+    const preview=row.querySelector(".gallery-preview");
+    const show=src=>preview.innerHTML=`<img src="${src}" alt="" style="max-width:100%;max-height:150px;object-fit:contain;display:block">`;
+
+    file.addEventListener("change",async()=>{
+      const f=file.files?.[0]; if(!f)return;
+      if(!f.type.startsWith("image/")){alert("Please choose an image.");file.value="";return;}
+      if(f.size>2*1024*1024){alert("Please use an image smaller than 2 MB.");file.value="";return;}
+      try{show(await imageFileToDataUrl(f));}catch(_){alert("Could not read image.");}
+    });
+    url.addEventListener("input",()=>{if(url.value.trim()&&!file.files?.length)show(url.value.trim())});
+    row.querySelector(".remove-gallery").onclick=()=>row.remove();
   }
 
-  fileInput.addEventListener("change",async()=>{
-    const file=fileInput.files?.[0];
-    if(!file)return;
-    if(!file.type.startsWith("image/")){
-      alert("Please choose an image file.");
-      fileInput.value="";
-      return;
-    }
-    if(file.size>2*1024*1024){
-      alert("Please use an image smaller than 2 MB.");
-      fileInput.value="";
-      return;
-    }
-    try{showPreview(await imageFileToDataUrl(file));}catch(_){alert("Could not read image.");}
-  });
+  $("#addGalleryImage").addEventListener("click",()=>addGalleryRow());
 
-  urlInput.addEventListener("input",()=>{
-    const url=urlInput.value.trim();
-    if(url && !fileInput.files?.length) showPreview(url);
-    if(!url && !fileInput.files?.length){
-      selectedImage="assets/no-signal-logo.png";
-      preview.textContent="IMAGE PREVIEW";
-    }
-  });
-
-  function buildColorFields(){
-    const colors=(($("#productForm [name='colors']").value||"BLACK").split(",").map(x=>x.trim()).filter(Boolean));
-    colorFields.innerHTML=colors.map(color=>`
-      <div class="color-image-block" data-color-block="${color}" style="border:1px solid #333;padding:14px;margin:10px 0">
-        <div style="font-size:11px;letter-spacing:.08em;margin-bottom:10px">${color}</div>
-        <input type="file" class="color-image-file" accept="image/*" data-color="${color}">
-        <input type="text" class="color-image-url" placeholder="OR IMAGE URL FOR ${color}" data-color="${color}" style="margin-top:7px">
-        <div class="color-image-preview" style="border:1px solid #222;padding:8px;margin-top:8px;min-height:60px;color:#666;font-size:10px">COLOR IMAGE PREVIEW</div>
-      </div>`).join("");
-
-    colorFields.querySelectorAll(".color-image-file").forEach(input=>{
-      input.addEventListener("change",async()=>{
-        const file=input.files?.[0];
-        const block=input.closest(".color-image-block");
-        const previewBlock=block?.querySelector(".color-image-preview");
-        if(!file||!previewBlock)return;
-        if(!file.type.startsWith("image/")){alert("Please choose an image file.");input.value="";return;}
-        if(file.size>2*1024*1024){alert("Please use an image smaller than 2 MB.");input.value="";return;}
-        try{
-          const src=await imageFileToDataUrl(file);
-          previewBlock.innerHTML=`<img src="${src}" alt="" style="max-width:100%;max-height:150px;object-fit:contain;display:block">`;
-        }catch(_){alert("Could not read image.");}
-      });
-    });
-
-    colorFields.querySelectorAll(".color-image-url").forEach(input=>{
-      input.addEventListener("input",()=>{
-        const block=input.closest(".color-image-block");
-        const previewBlock=block?.querySelector(".color-image-preview");
-        const url=input.value.trim();
-        if(url&&previewBlock) previewBlock.innerHTML=`<img src="${url}" alt="" style="max-width:100%;max-height:150px;object-fit:contain;display:block">`;
-        else if(previewBlock) previewBlock.textContent="COLOR IMAGE PREVIEW";
-      });
-    });
-  }
-
-  $("#buildColorImages").addEventListener("click",buildColorFields);
+  musicVolume.addEventListener("input",()=>musicVolumeValue.textContent=`${musicVolume.value}%`);
 
   $("#productForm").onsubmit=async e=>{
     e.preventDefault();
     const d=Object.fromEntries(new FormData(e.target));
-    const image=fileInput.files?.length ? selectedImage : (urlInput.value.trim() || "assets/no-signal-logo.png");
-    const colorImages={};
+    const rows=[...galleryFields.querySelectorAll(".gallery-image-row")];
+    const gallery=[];
 
-    for(const block of colorFields.querySelectorAll(".color-image-block")){
-      const color=block.dataset.colorBlock;
-      const file=block.querySelector(".color-image-file")?.files?.[0];
-      const url=block.querySelector(".color-image-url")?.value.trim();
+    for(const row of rows){
+      const color=row.querySelector(".gallery-color")?.value||"";
+      const file=row.querySelector(".gallery-file")?.files?.[0];
+      const url=row.querySelector(".gallery-url")?.value.trim();
+      let src=url;
       if(file){
-        if(file.size>2*1024*1024){alert(`Image for ${color} is larger than 2 MB.`);return;}
-        colorImages[color]=await imageFileToDataUrl(file);
-      }else if(url){
-        colorImages[color]=url;
+        if(file.size>2*1024*1024){alert("Each product image must be smaller than 2 MB.");return;}
+        src=await imageFileToDataUrl(file);
       }
+      if(src)gallery.push({src,color});
     }
+
+    let music="";
+    const musicF=musicFile.files?.[0];
+    if(musicF){
+      if(!musicF.type.startsWith("audio/")){alert("Please choose an audio file.");return;}
+      if(musicF.size>700*1024){alert("For now, keep product music under 700 KB.");return;}
+      music=await imageFileToDataUrl(musicF);
+    }else{
+      music=musicUrl.value.trim();
+    }
+
+    const image=gallery[0]?.src||"assets/no-signal-logo.png";
 
     try{
       await adminFetch('/api/admin/products',{
@@ -425,16 +474,16 @@ async function adminTab(tab="products"){
           badge:d.badge||'NEW',
           description:d.description||'',
           image,
-          colorImages
+          gallery,
+          musicUrl:music,
+          musicVolume:Number(musicVolume.value)/100
         })
       });
-
       await adminTab('products');
       await loadProducts();
-    }catch(err){
-      alert(err.message);
-    }
+    }catch(err){alert(err.message)}
   };
+
 });
   $$('[data-del-product]').forEach(b=>b.onclick=async()=>{if(!confirm('Delete this product?'))return;try{await adminFetch('/api/admin/products',{method:'DELETE',headers:{'content-type':'application/json'},body:JSON.stringify({id:b.dataset.delProduct})});await adminTab('products');await loadProducts()}catch(err){alert(err.message)}});
   $("#settingsForm")?.addEventListener("submit",async e=>{e.preventDefault();const d=Object.fromEntries(new FormData(e.target));d.shippingFee=+d.shippingFee;d.freeShippingAbove=+d.freeShippingAbove;try{const out=await adminFetch('/api/admin/settings',{method:'PUT',headers:{'content-type':'application/json'},body:JSON.stringify(d)});Object.assign(NO_SIGNAL.settings,out.settings);alert('Store details saved.')}catch(err){alert(err.message)}});
