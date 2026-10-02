@@ -1,14 +1,14 @@
 import { json, requireAdmin } from "./_auth.js";
 
 function normalize(p) {
-  const legacy=JSON.parse(p.color_images_json || "{}");
-  const gallery=JSON.parse(p.gallery_json || "[]");
-  return {...p,sizes:JSON.parse(p.sizes_json||"[]"),colors:JSON.parse(p.colors_json||"[]"),gallery:gallery.length?gallery:Object.entries(legacy).map(([color,src])=>({src,color})),musicUrl:p.music_url||"",musicVolume:Number(p.music_volume??0.35),featured:!!p.featured,published:!!p.published};
+  const media=JSON.parse(p.color_images_json||"{}");
+  const gallery=Array.isArray(media.gallery)?media.gallery:Object.entries(media).filter(([k])=>!["gallery","musicUrl","musicVolume"].includes(k)).map(([color,src])=>({src,color}));
+  return {...p,sizes:JSON.parse(p.sizes_json||"[]"),colors:JSON.parse(p.colors_json||"[]"),gallery,musicUrl:media.musicUrl||"",musicVolume:Number(media.musicVolume??0.35),featured:!!p.featured,published:!!p.published};
 }
 
 export async function onRequestGet({ request, env }) {
   const auth = await requireAdmin(request, env); if (!auth.ok) return auth.response;
-  const { results } = await env.DB.prepare(`SELECT id,name,slug,category,price,compare_at AS compareAt,badge,description,image,sizes_json,colors_json,color_images_json,gallery_json,music_url,music_volume,stock,featured,published,ceeprinto_product_id AS ceeprintoProductId FROM products ORDER BY created_at DESC`).all();
+  const { results } = await env.DB.prepare(`SELECT id,name,slug,category,price,compare_at AS compareAt,badge,description,image,sizes_json,colors_json,color_images_json,stock,featured,published,ceeprinto_product_id AS ceeprintoProductId FROM products ORDER BY created_at DESC`).all();
   return json(results.map(normalize));
 }
 
