@@ -11,6 +11,17 @@ let adminUnlocked = false;
 let currentCategory = "ALL";
 
 function playProductTransition(id){
+  const p=products.find(x=>x.id===id);
+  if(p?.musicUrl){
+    try{
+      if(window.noSignalProductAudio){window.noSignalProductAudio.pause();window.noSignalProductAudio.currentTime=0;}
+      const audio=new Audio(p.musicUrl);
+      audio.loop=true;
+      audio.volume=Math.max(0,Math.min(1,Number(p.musicVolume ?? 0.35)));
+      window.noSignalProductAudio=audio;
+      audio.play().catch(()=>{});
+    }catch(_){}
+  }
   const overlay=$("#productTransition");
   overlay.classList.remove("play"); void overlay.offsetWidth; overlay.classList.add("play");
   setTimeout(()=>{ productDetail(id); }, 1050);
@@ -168,13 +179,7 @@ function productDetail(id){
    thumb.style.borderColor="var(--lime)";
  });
 
- if(p.musicUrl){
-   const audio=new Audio(p.musicUrl);
-   audio.loop=true;
-   audio.volume=Math.max(0,Math.min(1,Number(p.musicVolume ?? 0.35)));
-   window.noSignalProductAudio=audio;
-   audio.play().catch(()=>{});
- }
+
 }
 
 function cartView(){
