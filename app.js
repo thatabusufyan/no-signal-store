@@ -378,7 +378,7 @@ async function adminTab(tab="products"){
       <div id="mainImageFields"></div>
 
       <label style="display:block;font-size:10px;letter-spacing:.08em;color:#999;margin-top:22px">COLOR-SPECIFIC IMAGES</label>
-      <p class="muted" style="font-size:10px">Add unlimited images. Each image gets its own color assignment. Example: BLACK → 3 images, WHITE → 4 images.</p>
+      <p class="muted" style="font-size:10px">Add unlimited images. Each image gets its own color assignment. Add your colors above first, then choose the matching color here.</p>
       <button type="button" class="button" id="addColorImage">+ ADD COLOR IMAGE</button>
       <div id="colorImageFields"></div>
 
@@ -405,6 +405,14 @@ async function adminTab(tab="products"){
         .split(",")
         .map(x=>x.trim())
         .filter(Boolean);
+    }
+
+    function colorOptions(){
+      return getColors().map(c=>{
+        const value=String(c).trim();
+        const safe=value.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+        return '<option value="' + safe + '">' + safe + '</option>';
+      }).join("");
     }
 
     function refreshColorInputs(){
@@ -463,12 +471,37 @@ async function adminTab(tab="products"){
     musicVolume.addEventListener("input",()=>musicVolumeValue.textContent=`${musicVolume.value}%`);
 
     async function uploadMedia(file){
-      const fd=new FormData();
-      fd.append("file",file);
-      const r=await fetch("/api/admin/media",{method:"POST",credentials:"same-origin",body:fd});
-      let out={}; try{out=await r.json()}catch(_){}
-      if(!r.ok)throw new Error(out.error||"Media upload failed");
-      return out.url;
+      if(!file) return "";
+      if(!file.type.startsWith("image/")) throw new Error("Please choose an image.");
+      const maxStoredBytes=350*1024;
+      if(file.size<=maxStoredBytes){
+        return await new Promise((resolve,reject)=>{
+          const reader=new FileReader();
+          reader.onload=()=>resolve(reader.result);
+          reader.onerror=()=>reject(new Error("Could not read image."));
+          reader.readAsDataURL(file);
+        });
+      }
+
+      const bitmap=await createImageBitmap(file);
+      const maxSide=1400;
+      const scale=Math.min(1,maxSide/Math.max(bitmap.width,bitmap.height));
+      const canvas=document.createElement("canvas");
+      canvas.width=Math.max(1,Math.round(bitmap.width*scale));
+      canvas.height=Math.max(1,Math.round(bitmap.height*scale));
+      const ctx=canvas.getContext("2d");
+      ctx.drawImage(bitmap,0,0,canvas.width,canvas.height);
+      bitmap.close();
+
+      return await new Promise((resolve,reject)=>{
+        canvas.toBlob(blob=>{
+          if(!blob)return reject(new Error("Could not compress image."));
+          const reader=new FileReader();
+          reader.onload=()=>resolve(reader.result);
+          reader.onerror=()=>reject(new Error("Could not read compressed image."));
+          reader.readAsDataURL(blob);
+        },"image/jpeg",0.82);
+      });
     }
 
     async function collect(container,type){
