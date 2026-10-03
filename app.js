@@ -252,8 +252,8 @@ function checkout(){
  const subtotal=cart.reduce((a,x)=>a+x.price*x.qty,0);
  const shipping=subtotal>=NO_SIGNAL.settings.freeShippingAbove?0:NO_SIGNAL.settings.shippingFee;
  const total=subtotal+shipping;
- openDrawer(`<p class="eyebrow">CHECKOUT / ${money(total)}</p><h2>YOUR DETAILS.</h2><form id="checkoutForm" class="admin-form"><input name="name" required placeholder="FULL NAME"><input name="phone" required placeholder="PHONE"><input name="email" required type="email" placeholder="EMAIL"><input name="city" required placeholder="CITY"><textarea name="address" required placeholder="COMPLETE DELIVERY ADDRESS"></textarea><input name="postalCode" placeholder="POSTAL CODE"><select name="paymentMethod" style="background:#0d0d0d;border:1px solid #333;color:white;padding:13px;font:10px Space Mono"><option value="cod">Cash on Delivery</option></select><p class="muted" style="font-size:10px">Payment remains pending until the buyer actually pays. CeePrinto can collect COD after the order is accepted.</p><button>PLACE ORDER</button></form>`);
- $("#checkoutForm").onsubmit=async e=>{e.preventDefault();const data=Object.fromEntries(new FormData(e.target));const payload={customer:data,paymentMethod:data.paymentMethod,shipping,items:cart.map(x=>({productId:x.id,name:x.name,size:x.size||"",color:x.color||"",quantity:x.qty,unitPrice:x.price}))};try{const r=await fetch('/api/orders',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(payload)});const out=await r.json();if(!r.ok)throw new Error(out.error||'Order failed');const orderId=out.orderId;cart=[];save();updateCounts();openDrawer(`<p class="eyebrow">ORDER RECEIVED</p><h2>THANK YOU.</h2><p class="muted">Your NO SIGNAL order has been received. PAYMENT STATUS: PENDING.</p><div style="border:1px solid var(--lime);padding:20px;margin-top:30px">ORDER NUMBER<br><strong style="font-size:24px;color:var(--lime)">${orderId}</strong></div>`)}catch(err){alert(err.message)}}
+ openDrawer(`<p class="eyebrow">CHECKOUT / ${money(total)}</p><h2>YOUR DETAILS.</h2><form id="checkoutForm" class="admin-form"><input name="name" required placeholder="FULL NAME"><input name="phone" required placeholder="PHONE"><input name="email" required type="email" placeholder="EMAIL"><input name="city" required placeholder="CITY"><textarea name="address" required placeholder="COMPLETE DELIVERY ADDRESS"></textarea><input name="postalCode" placeholder="POSTAL CODE"><select name="paymentMethod" style="background:#0d0d0d;border:1px solid #333;color:white;padding:13px;font:10px Space Mono"><option value="cod">Cash on Delivery</option></select><p class="muted" style="font-size:10px">Cash on Delivery selected. We will contact you to confirm your order.</p><button>PLACE ORDER</button></form>`);
+ $("#checkoutForm").onsubmit=async e=>{e.preventDefault();const data=Object.fromEntries(new FormData(e.target));const payload={customer:data,paymentMethod:data.paymentMethod,shipping,items:cart.map(x=>({productId:x.id,name:x.name,size:x.size||"",color:x.color||"",image:x.image||"",quantity:x.qty,unitPrice:x.price}))};try{const r=await fetch('/api/orders',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(payload)});const out=await r.json();if(!r.ok)throw new Error(out.error||'Order failed');const orderId=out.orderId;cart=[];save();updateCounts();openDrawer(`<p class="eyebrow">ORDER RECEIVED</p><h2>THANK YOU.</h2><p class="muted">Your NO SIGNAL order has been received. PAYMENT STATUS: PENDING.</p><div style="border:1px solid var(--lime);padding:20px;margin-top:30px">ORDER NUMBER<br><strong style="font-size:24px;color:var(--lime)">${orderId}</strong></div>`)}catch(err){alert(err.message)}}
 }
 async function adminFetch(url, options={}){const r=await fetch(url,{credentials:'same-origin',...options});let data={};try{data=await r.json()}catch{}if(r.status===401){adminUnlocked=false;throw new Error('SESSION_EXPIRED')}if(!r.ok)throw new Error(data.error||'Request failed');return data}
 
@@ -319,14 +319,18 @@ async function adminTab(tab="products"){
          <div>
            ${items.map(item=>`
              <div style="border-bottom:1px solid #222;padding:14px 0">
-               <b>${item.name}</b>
-               <small style="display:block;color:#999;margin-top:5px">
+               <div style="display:flex;gap:12px;align-items:flex-start">
+                 ${item.image?`<img src="${item.image}" alt="${item.name}" style="width:72px;height:72px;object-fit:cover;background:#111;border:1px solid #333">`:""}
+                 <div>
+                   <b>${item.name}</b>
+                   <small style="display:block;color:#999;margin-top:5px">
                  SIZE: ${item.size||"—"} · COLOR: ${item.color||"—"} · QTY: ${item.quantity}
                </small>
                <small style="display:block;color:#666;margin-top:4px">
-                 ${money(item.unitPrice)} each
-               </small>
-             </div>
+                     ${money(item.unitPrice)} each
+                   </small>
+                 </div>
+               </div>
            `).join("")}
          </div>
 
