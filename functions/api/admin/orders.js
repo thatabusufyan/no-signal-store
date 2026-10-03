@@ -44,7 +44,7 @@ export async function onRequestGet({ request, env }) {
       FROM order_items oi
       LEFT JOIN products p ON p.id=oi.product_id
       WHERE oi.order_id=?
-      ORDER BY id ASC
+      ORDER BY oi.id ASC
     `).bind(o.id).all();
 
     orders.push({
