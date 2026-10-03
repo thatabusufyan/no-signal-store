@@ -38,6 +38,7 @@ export async function onRequestGet({ request, env }) {
         name,
         size,
         color,
+        image,
         quantity,
         unit_price AS unitPrice
       FROM order_items
