@@ -119,7 +119,7 @@ async function ensureShop(env) {
   return Number(shopId);
 }
 
-async function submitOrder(env, orderId) {
+export async function submitCeePrintoOrder(env, orderId) {
   const shopId = await ensureShop(env);
 
   const order = await env.DB.prepare(`
