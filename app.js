@@ -363,6 +363,7 @@ async function adminTab(tab="products"){
       <input name="sizes" placeholder="SIZES: S,M,L,XL">
       <input name="colors" placeholder="COLORS: BLACK,WHITE,RED">
       <input name="badge" placeholder="BADGE (NEW / SALE / LIMITED)">
+      <input name="ceeprintoProductId" placeholder="CEEPRINTO VARIANT ID (OPTIONAL)">
 
       <label style="display:block;font-size:10px;letter-spacing:.08em;color:#999;margin-top:14px">MAIN PRODUCT IMAGES</label>
       <p class="muted" style="font-size:10px">Add as many main images as you want. These are the default product gallery.</p>
@@ -496,6 +497,7 @@ async function adminTab(tab="products"){
             sizes:(d.sizes||"S,M,L,XL").split(",").map(x=>x.trim()).filter(Boolean),
             colors:(d.colors||"BLACK").split(",").map(x=>x.trim()).filter(Boolean),
             badge:d.badge||"NEW",description:d.description||"",image,gallery,
+            ceeprintoProductId:d.ceeprintoProductId||null,
             musicUrl:music,musicVolume:Number(musicVolume.value)/100
           })
         });
