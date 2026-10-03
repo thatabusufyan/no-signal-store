@@ -57,6 +57,7 @@ CREATE TABLE IF NOT EXISTS order_items (
   name TEXT NOT NULL,
   size TEXT,
   color TEXT,
+  image TEXT,
   quantity INTEGER NOT NULL,
   unit_price INTEGER NOT NULL,
   FOREIGN KEY(order_id) REFERENCES orders(id)
