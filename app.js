@@ -11,7 +11,7 @@ let adminUnlocked = false;
 let currentCategory = "ALL";
 
 function isDirectAudioUrl(url){
-  return /^data:audio\\//i.test(String(url||"")) || /\\.(mp3|m4a|aac|ogg|oga|wav|webm)(?:[?#]|$)/i.test(String(url||""));
+  return /^data:audio\//i.test(String(url||"")) || /\.(mp3|m4a|aac|ogg|oga|wav|webm)(?:[?#]|$)/i.test(String(url||""));
 }
 async function resolveProductAudioUrl(url){
   if(!url)return "";
