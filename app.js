@@ -10,12 +10,26 @@ let orders = [];
 let adminUnlocked = false;
 let currentCategory = "ALL";
 
+function isDirectAudioUrl(url){
+  return /^data:audio\\//i.test(String(url||"")) || /\\.(mp3|m4a|aac|ogg|oga|wav|webm)(?:[?#]|$)/i.test(String(url||""));
+}
+async function resolveProductAudioUrl(url){
+  if(!url)return "";
+  if(isDirectAudioUrl(url))return url;
+  try{
+    const r=await fetch("/api/audio-resolve?url="+encodeURIComponent(url));
+    if(!r.ok)return "";
+    const data=await r.json();
+    return data.url||"";
+  }catch(_){return ""}
+}
+
 function playProductTransition(id){
   const p=products.find(x=>x.id===id);
   if(p?.musicUrl){
     try{
       if(window.noSignalProductAudio){window.noSignalProductAudio.pause();window.noSignalProductAudio.currentTime=0;}
-      const audio=new Audio(p.musicUrl);
+      const audio=new Audio(p.resolvedMusicUrl||p.musicUrl);
       audio.loop=true;
       audio.volume=Math.max(0,Math.min(1,Number(p.musicVolume ?? 0.35)));
       window.noSignalProductAudio=audio;
@@ -90,7 +104,7 @@ function productDetail(id){
  const p=products.find(x=>x.id===id); if(!p)return;
 
  const sizes=Array.isArray(p.sizes)&&p.sizes.length?p.sizes:["S","M","L","XL"];
- const colors=Array.isArray(p.colors)&&p.colors.length?p.colors:["BLACK"];
+ const colors=Array.isArray(p.colors)&&p.colors.length?p.colors:[];
  const gallery=normalizeGallery(p);
  const firstColor=colors[0]||"";
  const initialImages=getMainImages(p);
@@ -120,10 +134,10 @@ function productDetail(id){
     ${sizes.map((s,i)=>`<button class="${i===0?"selected":""}" data-size="${s}">${s}</button>`).join("")}
   </div>
 
-  <p class="eyebrow" style="margin-top:20px">SELECT COLOR</p>
+  ${colors.length?`<p class="eyebrow" style="margin-top:20px">SELECT COLOR</p>
   <div class="size-row">
     ${colors.map((c,i)=>`<button class="${i===0?"selected":""}" data-color="${c}">${c}</button>`).join("")}
-  </div>
+  </div>`:""}
 
   <button class="button button-lime full" id="addToBag"
     data-id="${p.id}"
@@ -571,8 +585,30 @@ document.addEventListener("click",e=>{
    }
    return;
  }
- const p=e.target.closest("[data-product]"); if(p && !e.target.closest("[data-wish]")) playProductTransition(p.dataset.product);
- if(e.target.closest("[data-wish]")) toggleWish(e.target.closest("[data-wish]").dataset.wish);
+ const searchProduct=e.target.closest("[data-search-product]");
+ if(searchProduct){
+   e.preventDefault();
+   e.stopPropagation();
+   closeModal("search");
+   playProductTransition(searchProduct.dataset.searchProduct);
+   return;
+ }
+ const wishlistProduct=e.target.closest("[data-wishlist-product]");
+ if(wishlistProduct){
+   e.preventDefault();
+   e.stopPropagation();
+   closeDrawer();
+   playProductTransition(wishlistProduct.dataset.wishlistProduct);
+   return;
+ }
+ const p=e.target.closest("[data-product]");
+ if(p) playProductTransition(p.dataset.product);
+ if(e.target.closest("[data-wish]")){
+   e.preventDefault();
+   e.stopPropagation();
+   toggleWish(e.target.closest("[data-wish]").dataset.wish);
+   return;
+ }
  if(e.target.closest("[data-open='bag']"))cartView();
  if(e.target.closest("[data-open='search']")){$("#searchModal").classList.add("open");setTimeout(()=>$("#searchInput").focus(),50)}
  if(e.target.closest("[data-open='admin']"))openAdmin();
@@ -588,14 +624,25 @@ document.addEventListener("click",e=>{
  if(e.target.closest(".filter")){$$(".filter").forEach(x=>x.classList.remove("active"));e.target.closest(".filter").classList.add("active");currentCategory=e.target.closest(".filter").dataset.cat;renderProducts()}
  if(e.target.closest("[data-admin-tab]")){$$(".admin-tabs button").forEach(x=>x.classList.remove("active"));e.target.closest("[data-admin-tab]").classList.add("active");adminTab(e.target.closest("[data-admin-tab]").dataset.adminTab)}
 });
-$("#searchInput").addEventListener("input",()=>{renderProducts();const q=$("#searchInput").value.toLowerCase();$("#searchResults").innerHTML=products.filter(p=>p.name.toLowerCase().includes(q)).map(p=>`<div class="search-result"><span>${p.name}</span><span>${money(p.price)}</span></div>`).join("")});
-$$("[data-open='wishlist']").forEach(b=>b.addEventListener("click",()=>{openDrawer(`<p class="eyebrow">SAVED SIGNALS</p><h2>WISHLIST.</h2>${products.filter(p=>wishlist.includes(p.id)).map(p=>`<div class="cart-line"><img src="${p.image}"><div><b>${p.name}</b><small style="display:block;color:#666">${money(p.price)}</small></div><button class="button" data-product="${p.id}">VIEW</button></div>`).join("")||'<p class="muted">Nothing saved yet.</p>'}`)}));
+$("#searchInput").addEventListener("input",()=>{
+ const q=$("#searchInput").value.toLowerCase().trim();
+ renderProducts();
+ const matches=products.filter(p=>`${p.name} ${p.category} ${p.description||""}`.toLowerCase().includes(q));
+ $("#searchResults").innerHTML=matches.map(p=>`
+   <button type="button" class="search-result" data-search-product="${p.id}">
+     <img src="${getMainImages(p)[0]?.src||p.image||"assets/no-signal-logo.png"}" alt="${p.name}">
+     <span class="search-result-copy"><b>${p.name}</b><small>${p.category}</small></span>
+     <span>${money(p.price)}</span>
+   </button>
+ `).join("")||'<p class="muted">No matching products.</p>';
+});
+$$("[data-open='wishlist']").forEach(b=>b.addEventListener("click",()=>{openDrawer(`<p class="eyebrow">SAVED SIGNALS</p><h2>WISHLIST.</h2>${products.filter(p=>wishlist.includes(p.id)).map(p=>`<button type="button" class="cart-line wishlist-item" data-wishlist-product="${p.id}" style="width:100%;background:none;border:0;color:inherit;text-align:left;cursor:pointer"><img src="${getMainImages(p)[0]?.src||p.image||"assets/no-signal-logo.png"}" alt="${p.name}"><div><b>${p.name}</b><small style="display:block;color:#666">${money(p.price)}</small></div><span class="button">VIEW</span></button>`).join("")||'<p class="muted">Nothing saved yet.</p>'}`)}));
 
 $("#enter").addEventListener("click",()=>{
  try{const C=window.AudioContext||window.webkitAudioContext;const c=new C(),o=c.createOscillator(),g=c.createGain();o.type="sawtooth";o.frequency.setValueAtTime(90,c.currentTime);o.frequency.exponentialRampToValueAtTime(35,c.currentTime+.35);g.gain.setValueAtTime(.0001,c.currentTime);g.gain.exponentialRampToValueAtTime(.25,c.currentTime+.02);g.gain.exponentialRampToValueAtTime(.0001,c.currentTime+.42);o.connect(g).connect(c.destination);o.start();o.stop(c.currentTime+.45)}catch(_){}
  $("#intro").classList.add("hide");
 });
-async function loadProducts(){try{const r=await fetch('/api/products');if(r.ok){const data=await r.json();if(Array.isArray(data)&&data.length)products=data;renderProducts()}}catch(_){} }
+async function loadProducts(){try{const r=await fetch('/api/products');if(r.ok){const data=await r.json();if(Array.isArray(data)&&data.length){products=data;await Promise.all(products.filter(p=>p.musicUrl&&!isDirectAudioUrl(p.musicUrl)).map(async p=>{const url=await resolveProductAudioUrl(p.musicUrl);if(url)p.resolvedMusicUrl=url}))}renderProducts()}}catch(_){} }
 async function loadSettings(){try{const r=await fetch('/api/settings');if(r.ok)Object.assign(NO_SIGNAL.settings,await r.json())}catch(_){} }
 loadSettings().then(loadProducts);
 renderProducts();updateCounts();
