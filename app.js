@@ -363,6 +363,13 @@ async function adminTab(tab="products"){
       <input name="sizes" placeholder="SIZES: S,M,L,XL">
       <input name="colors" placeholder="COLORS: BLACK,WHITE,RED">
       <input name="badge" placeholder="BADGE (NEW / SALE / LIMITED)">
+
+      <label style="display:block;font-size:10px;letter-spacing:.08em;color:#999;margin-top:14px">FULFILLMENT</label>
+      <select name="fulfillmentType" style="background:#0d0d0d;color:white;border:1px solid #333;padding:10px;width:100%">
+        <option value="internal">INTERNAL</option>
+        <option value="ceeprinto">CEEPRINTO</option>
+      </select>
+
       <input name="ceeprintoProductId" placeholder="CEEPRINTO VARIANT ID (OPTIONAL)">
 
       <label style="display:block;font-size:10px;letter-spacing:.08em;color:#999;margin-top:14px">MAIN PRODUCT IMAGES</label>
@@ -497,6 +504,7 @@ async function adminTab(tab="products"){
             sizes:(d.sizes||"S,M,L,XL").split(",").map(x=>x.trim()).filter(Boolean),
             colors:(d.colors||"BLACK").split(",").map(x=>x.trim()).filter(Boolean),
             badge:d.badge||"NEW",description:d.description||"",image,gallery,
+            fulfillmentType:d.fulfillmentType||"internal",
             ceeprintoProductId:d.ceeprintoProductId||null,
             musicUrl:music,musicVolume:Number(musicVolume.value)/100
           })

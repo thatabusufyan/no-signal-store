@@ -1,0 +1,17 @@
+# Cloudflare / Wrangler local state
+.wrangler/
+
+# Local merge / feature backups
+.backup-ceeprinto/
+.backup-before-merge-resolution/
+
+# Local environment / secrets
+.env
+.env.*
+!.env.example
+
+# OS/editor files
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
