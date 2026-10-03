@@ -385,20 +385,38 @@ async function adminTab(tab="products"){
     const musicVolume=$("#musicVolume");
     const musicVolumeValue=$("#musicVolumeValue");
 
-    function colorOptions(){
-      return (($("#productForm [name='colors']").value||"BLACK").split(",").map(x=>x.trim()).filter(Boolean))
-        .map(c=>`<option value="${c}">${c}</option>`).join("");
+    const colorsInput=$("#productForm [name='colors']");
+
+    function getColors(){
+      return (colorsInput.value||"BLACK")
+        .split(",")
+        .map(x=>x.trim())
+        .filter(Boolean);
+    }
+
+    function colorOptions(selected=""){
+      return `<option value="">SELECT COLOR</option>${getColors()
+        .map(c=>`<option value="${c}" ${c===selected?"selected":""}>${c}</option>`)
+        .join("")}`;
+    }
+
+    function refreshColorSelectors(){
+      colorFields.querySelectorAll(".media-color").forEach(select=>{
+        const current=select.value;
+        const colors=getColors();
+        select.innerHTML=colorOptions(colors.includes(current)?current:"");
+      });
     }
 
     function addMediaRow(container,type){
       const row=document.createElement("div");
-      row.style="border:1px solid #333;padding:12px;margin:10px 0";
+      row.className="media-row";
+      row.style="border:1px solid #333;padding:14px;margin:10px 0";
       row.innerHTML=`
+        <div class="muted" style="font-size:9px;margin-bottom:8px">${type==="color"?"COLOR-SPECIFIC IMAGE":"MAIN PRODUCT IMAGE"}</div>
         <input type="file" class="media-file" accept="image/*">
         <input type="text" class="media-url" placeholder="OR IMAGE URL" style="margin-top:7px">
-        ${type==="color"?`<select class="media-color" style="margin-top:7px;background:#0d0d0d;color:white;border:1px solid #333;padding:10px;width:100%">
-          <option value="">SELECT COLOR</option>${colorOptions()}
-        </select>`:"<div class='muted' style='font-size:10px;margin-top:7px'>MAIN PRODUCT IMAGE</div>"}
+        ${type==="color"?`<select class="media-color" style="margin-top:7px;background:#0d0d0d;color:white;border:1px solid #333;padding:10px;width:100%">${colorOptions()}</select>`:""}
         <div class="media-preview" style="border:1px solid #222;padding:8px;margin-top:8px;min-height:60px;color:#666;font-size:10px">IMAGE PREVIEW</div>
         <button type="button" class="button remove-media" style="margin-top:8px">REMOVE</button>`;
       container.appendChild(row);
@@ -408,16 +426,30 @@ async function adminTab(tab="products"){
       const preview=row.querySelector(".media-preview");
       const show=src=>preview.innerHTML=`<img src="${src}" alt="" style="max-width:100%;max-height:160px;object-fit:contain;display:block">`;
 
-      file.addEventListener("change",async()=>{
-        const f=file.files?.[0]; if(!f)return;
-        if(!f.type.startsWith("image/")){alert("Please choose an image.");file.value="";return;}
-        if(f.size>10*1024*1024){alert("Each image must be 10 MB or smaller.");file.value="";return;}
+      file.addEventListener("change",()=>{
+        const f=file.files?.[0];
+        if(!f)return;
+        if(!f.type.startsWith("image/")){
+          alert("Please choose an image.");
+          file.value="";
+          return;
+        }
+        if(f.size>10*1024*1024){
+          alert("Each image must be 10 MB or smaller.");
+          file.value="";
+          return;
+        }
         try{show(URL.createObjectURL(f));}catch(_){}
       });
-      url.addEventListener("input",()=>{if(url.value.trim()&&!file.files?.length)show(url.value.trim())});
+
+      url.addEventListener("input",()=>{
+        if(url.value.trim()&&!file.files?.length)show(url.value.trim());
+      });
+
       row.querySelector(".remove-media").onclick=()=>row.remove();
     }
 
+    colorsInput.addEventListener("input",refreshColorSelectors);
     $("#addMainImage").addEventListener("click",()=>addMediaRow(mainFields,"main"));
     $("#addColorImage").addEventListener("click",()=>addMediaRow(colorFields,"color"));
     musicVolume.addEventListener("input",()=>musicVolumeValue.textContent=`${musicVolume.value}%`);
