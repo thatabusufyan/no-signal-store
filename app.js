@@ -252,8 +252,8 @@ function checkout(){
  const subtotal=cart.reduce((a,x)=>a+x.price*x.qty,0);
  const shipping=subtotal>=NO_SIGNAL.settings.freeShippingAbove?0:NO_SIGNAL.settings.shippingFee;
  const total=subtotal+shipping;
- openDrawer(`<p class="eyebrow">CHECKOUT / ${money(total)}</p><h2>YOUR DETAILS.</h2><form id="checkoutForm" class="admin-form"><input name="name" required placeholder="FULL NAME"><input name="phone" required placeholder="PHONE"><input name="email" required type="email" placeholder="EMAIL"><input name="city" required placeholder="CITY"><textarea name="address" required placeholder="COMPLETE DELIVERY ADDRESS"></textarea><input name="postalCode" placeholder="POSTAL CODE"><select name="paymentMethod" style="background:#0d0d0d;border:1px solid #333;color:white;padding:13px;font:10px Space Mono"><option value="cod">Cash on Delivery</option><option value="online">Online Payment</option></select><button>PLACE ORDER</button></form>`);
- $("#checkoutForm").onsubmit=async e=>{e.preventDefault();const data=Object.fromEntries(new FormData(e.target));const payload={customer:data,paymentMethod:data.paymentMethod,shipping,items:cart.map(x=>({productId:x.id,name:x.name,size:x.size||"",color:x.color||"",quantity:x.qty,unitPrice:x.price}))};try{const r=await fetch('/api/orders',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(payload)});const out=await r.json();if(!r.ok)throw new Error(out.error||'Order failed');const orderId=out.orderId;cart=[];save();updateCounts();openDrawer(`<p class="eyebrow">ORDER CONFIRMED</p><h2>THANK YOU.</h2><p class="muted">Your NO SIGNAL order has been received.</p><div style="border:1px solid var(--lime);padding:20px;margin-top:30px">ORDER NUMBER<br><strong style="font-size:24px;color:var(--lime)">${orderId}</strong></div>`)}catch(err){alert(err.message)}}
+ openDrawer(`<p class="eyebrow">CHECKOUT / ${money(total)}</p><h2>YOUR DETAILS.</h2><form id="checkoutForm" class="admin-form"><input name="name" required placeholder="FULL NAME"><input name="phone" required placeholder="PHONE"><input name="email" required type="email" placeholder="EMAIL"><input name="city" required placeholder="CITY"><textarea name="address" required placeholder="COMPLETE DELIVERY ADDRESS"></textarea><input name="postalCode" placeholder="POSTAL CODE"><select name="paymentMethod" style="background:#0d0d0d;border:1px solid #333;color:white;padding:13px;font:10px Space Mono"><option value="cod">Cash on Delivery</option></select><p class="muted" style="font-size:10px">Payment remains pending until the buyer actually pays. CeePrinto can collect COD after the order is accepted.</p><button>PLACE ORDER</button></form>`);
+ $("#checkoutForm").onsubmit=async e=>{e.preventDefault();const data=Object.fromEntries(new FormData(e.target));const payload={customer:data,paymentMethod:data.paymentMethod,shipping,items:cart.map(x=>({productId:x.id,name:x.name,size:x.size||"",color:x.color||"",quantity:x.qty,unitPrice:x.price}))};try{const r=await fetch('/api/orders',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(payload)});const out=await r.json();if(!r.ok)throw new Error(out.error||'Order failed');const orderId=out.orderId;cart=[];save();updateCounts();openDrawer(`<p class="eyebrow">ORDER RECEIVED</p><h2>THANK YOU.</h2><p class="muted">Your NO SIGNAL order has been received. PAYMENT STATUS: PENDING.</p><div style="border:1px solid var(--lime);padding:20px;margin-top:30px">ORDER NUMBER<br><strong style="font-size:24px;color:var(--lime)">${orderId}</strong></div>`)}catch(err){alert(err.message)}}
 }
 async function adminFetch(url, options={}){const r=await fetch(url,{credentials:'same-origin',...options});let data={};try{data=await r.json()}catch{}if(r.status===401){adminUnlocked=false;throw new Error('SESSION_EXPIRED')}if(!r.ok)throw new Error(data.error||'Request failed');return data}
 
@@ -273,10 +273,17 @@ async function adminTab(tab="products"){
          <div class="admin-row order-row" data-order-index="${i}" style="cursor:pointer">
            <div>
              <b>${o.id}</b>
-             <small>
-               ${o.customerName||"Customer"}
-               · ${o.phone||"No phone"}
-               · ${o.paymentMethod||"payment"}
+             <small style="display:block">
+               CUSTOMER: ${o.customerName||"—"} · PHONE: ${o.phone||"—"} · EMAIL: ${o.email||"—"}
+             </small>
+             <small style="display:block;color:#777;margin-top:4px">
+               ${o.city||"—"} · ${o.address||"—"} · ${o.postalCode||"—"}
+             </small>
+             <small style="display:block;color:#777;margin-top:4px">
+               ITEMS: ${(o.items||[]).map(i=>`${i.name} / ${i.size||"—"} / ${i.color||"—"} × ${i.quantity}`).join(" · ")||"—"}
+             </small>
+             <small style="display:block;color:#777;margin-top:4px">
+               PAYMENT: ${o.paymentMethod||"—"} / ${o.paymentStatus||"pending"} · FULFILLMENT: ${o.fulfillmentStatus||"received"}
              </small>
            </div>
            <span>${money(o.total)}</span>
@@ -330,8 +337,8 @@ async function adminTab(tab="products"){
          </div>
 
          <div style="border-top:1px solid #333;padding-top:20px;margin-top:20px">
-           <p class="muted">PAYMENT: <b style="color:white">${o.paymentMethod||"—"}</b></p>
-           <p class="muted">PAYMENT STATUS: <b style="color:white">${o.paymentStatus||"pending"}</b></p>
+           <p class="muted">PAYMENT METHOD: <b style="color:white">${o.paymentMethod||"—"}</b></p>
+           <p class="muted">PAYMENT STATUS: <b style="color:white">${o.paymentStatus||"pending"}</b> — this is not marked paid unless payment is actually confirmed.</p>
            <p class="muted">FULFILLMENT: <b style="color:white">${o.fulfillmentStatus||"received"}</b></p>
            ${o.trackingNumber?`<p class="muted">TRACKING: <b style="color:white">${o.trackingNumber}</b></p>`:""}
            ${o.ceeprintoOrderId?`<p class="muted">CEEPRINTO: <b style="color:white">${o.ceeprintoOrderId}</b></p>`:""}
@@ -368,9 +375,8 @@ async function adminTab(tab="products"){
       <div id="colorImageFields"></div>
 
       <label style="display:block;font-size:10px;letter-spacing:.08em;color:#999;margin-top:22px">PRODUCT MUSIC (OPTIONAL)</label>
-      <input id="musicFile" type="file" accept="audio/*">
-      <p class="muted" style="font-size:10px">Music is uploaded to the site's media storage. Up to 5 MB per product.</p>
-      <input id="musicUrl" placeholder="OR MUSIC URL (OPTIONAL)">
+      <input id="musicUrl" placeholder="MUSIC URL (OPTIONAL)">
+      <p class="muted" style="font-size:10px">Use a direct audio URL. File uploads are disabled because the store is using URL-based media without R2.</p>
       <label style="display:block;font-size:10px;letter-spacing:.08em;color:#999;margin-top:8px">MUSIC VOLUME: <span id="musicVolumeValue">35%</span></label>
       <input id="musicVolume" type="range" min="0" max="100" value="35" step="1">
 
@@ -380,7 +386,6 @@ async function adminTab(tab="products"){
 
     const mainFields=$("#mainImageFields");
     const colorFields=$("#colorImageFields");
-    const musicFile=$("#musicFile");
     const musicUrl=$("#musicUrl");
     const musicVolume=$("#musicVolume");
     const musicVolumeValue=$("#musicVolumeValue");
@@ -394,17 +399,9 @@ async function adminTab(tab="products"){
         .filter(Boolean);
     }
 
-    function colorOptions(selected=""){
-      return `<option value="">SELECT COLOR</option>${getColors()
-        .map(c=>`<option value="${c}" ${c===selected?"selected":""}>${c}</option>`)
-        .join("")}`;
-    }
-
-    function refreshColorSelectors(){
-      colorFields.querySelectorAll(".media-color").forEach(select=>{
-        const current=select.value;
-        const colors=getColors();
-        select.innerHTML=colorOptions(colors.includes(current)?current:"");
+    function refreshColorInputs(){
+      colorFields.querySelectorAll(".media-color").forEach(input=>{
+        input.placeholder="TYPE COLOR (BLACK / WHITE / RED / etc.)";
       });
     }
 
@@ -449,9 +446,12 @@ async function adminTab(tab="products"){
       row.querySelector(".remove-media").onclick=()=>row.remove();
     }
 
-    colorsInput.addEventListener("input",refreshColorSelectors);
+    colorsInput.addEventListener("input",refreshColorInputs);
     $("#addMainImage").addEventListener("click",()=>addMediaRow(mainFields,"main"));
     $("#addColorImage").addEventListener("click",()=>addMediaRow(colorFields,"color"));
+    addMediaRow(mainFields,"main");
+    addMediaRow(colorFields,"color");
+    addMediaRow(colorFields,"color");
     musicVolume.addEventListener("input",()=>musicVolumeValue.textContent=`${musicVolume.value}%`);
 
     async function uploadMedia(file){
@@ -483,11 +483,7 @@ async function adminTab(tab="products"){
       const d=Object.fromEntries(new FormData(e.target));
       try{
         const gallery=[...(await collect(mainFields,"main")),...(await collect(colorFields,"color"))];
-        let music=d.musicUrl||"";
-        if(musicFile.files?.[0]){
-          if(musicFile.files[0].size>5*1024*1024)throw new Error("Music file must be 5 MB or smaller.");
-          music=await uploadMedia(musicFile.files[0]);
-        }
+        const music=d.musicUrl||"";
 
         const image=(gallery.find(x=>x.type==="main")||gallery[0])?.src||"assets/no-signal-logo.png";
 
