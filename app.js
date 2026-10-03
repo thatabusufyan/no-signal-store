@@ -361,7 +361,7 @@ async function adminTab(tab="products"){
       <input name="category" required placeholder="CATEGORY (T-SHIRTS / HOODIES / ACCESSORIES)">
       <input name="stock" required type="number" min="0" placeholder="STOCK">
       <input name="sizes" placeholder="SIZES: S,M,L,XL">
-      <input name="colors" placeholder="COLORS: BLACK,WHITE,RED">
+      <input name="colors" placeholder="COLORS: type manually, e.g. BLACK, WHITE, RED">
       <input name="badge" placeholder="BADGE (NEW / SALE / LIMITED)">
 
       <label style="display:block;font-size:10px;letter-spacing:.08em;color:#999;margin-top:14px">FULFILLMENT</label>
@@ -401,18 +401,10 @@ async function adminTab(tab="products"){
     const colorsInput=$("#productForm [name='colors']");
 
     function getColors(){
-      return (colorsInput.value||"BLACK")
+      return (colorsInput.value||"")
         .split(",")
         .map(x=>x.trim())
         .filter(Boolean);
-    }
-
-    function colorOptions(){
-      return getColors().map(c=>{
-        const value=String(c).trim();
-        const safe=value.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
-        return '<option value="' + safe + '">' + safe + '</option>';
-      }).join("");
     }
 
     function refreshColorInputs(){
@@ -429,7 +421,7 @@ async function adminTab(tab="products"){
         <div class="muted" style="font-size:9px;margin-bottom:8px">${type==="color"?"COLOR-SPECIFIC IMAGE":"MAIN PRODUCT IMAGE"}</div>
         <input type="file" class="media-file" accept="image/*">
         <input type="text" class="media-url" placeholder="OR IMAGE URL" style="margin-top:7px">
-        ${type==="color"?`<select class="media-color" style="margin-top:7px;background:#0d0d0d;color:white;border:1px solid #333;padding:10px;width:100%">${colorOptions()}</select>`:""}
+        ${type==="color"?`<input type="text" class="media-color" placeholder="TYPE COLOR MANUALLY (e.g. BLACK)" style="margin-top:7px">`:""}
         <div class="media-preview" style="border:1px solid #222;padding:8px;margin-top:8px;min-height:60px;color:#666;font-size:10px">IMAGE PREVIEW</div>
         <button type="button" class="button remove-media" style="margin-top:8px">REMOVE</button>`;
       container.appendChild(row);
@@ -511,7 +503,7 @@ async function adminTab(tab="products"){
         const file=row.querySelector(".media-file")?.files?.[0];
         const url=row.querySelector(".media-url")?.value.trim();
         const color=type==="color"?(row.querySelector(".media-color")?.value||""):"";
-        if(type==="color"&&!color)throw new Error("Select a color for every color-specific image.");
+        if(type==="color"&&!color)throw new Error("Type a color for every color-specific image.");
         let src=url;
         if(file)src=await uploadMedia(file);
         if(src)gallery.push({src,color,type});
@@ -535,7 +527,7 @@ async function adminTab(tab="products"){
             name:d.name,price:+d.price,compareAt:d.compareAt?+d.compareAt:null,
             category:d.category,stock:+d.stock,
             sizes:(d.sizes||"S,M,L,XL").split(",").map(x=>x.trim()).filter(Boolean),
-            colors:(d.colors||"BLACK").split(",").map(x=>x.trim()).filter(Boolean),
+            colors:(d.colors||"").split(",").map(x=>x.trim()).filter(Boolean),
             badge:d.badge||"NEW",description:d.description||"",image,gallery,
             fulfillmentType:d.fulfillmentType||"internal",
             ceeprintoProductId:d.ceeprintoProductId||null,
