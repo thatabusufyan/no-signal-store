@@ -1,22 +1,11 @@
 import { json, requireAdmin } from "./_auth.js";
 
 function normalize(p) {
-  const media = JSON.parse(p.color_images_json || "{}");
-
-  const gallery = Array.isArray(media.gallery)
-    ? media.gallery
-    : Object.entries(media)
-        .filter(([k]) => !["gallery", "musicUrl", "musicVolume"].includes(k))
-        .map(([color, src]) => ({ src, color }));
-
   return {
     ...p,
     sizes: JSON.parse(p.sizes_json || "[]"),
     colors: JSON.parse(p.colors_json || "[]"),
     colorImages: JSON.parse(p.color_images_json || "{}"),
-    gallery,
-    musicUrl: media.musicUrl || "",
-    musicVolume: Number(media.musicVolume ?? 0.35),
     featured: !!p.featured,
     published: !!p.published
   };
@@ -43,8 +32,7 @@ export async function onRequestGet({ request, env }) {
       stock,
       featured,
       published,
-      ceeprinto_product_id AS ceeprintoProductId,
-      fulfillment_type AS fulfillmentType
+      ceeprinto_product_id AS ceeprintoProductId
     FROM products
     ORDER BY created_at DESC
   `).all();
@@ -57,7 +45,6 @@ export async function onRequestPost({ request, env }) {
   if (!auth.ok) return auth.response;
 
   let b;
-
   try {
     b = await request.json();
   } catch {
@@ -74,53 +61,18 @@ export async function onRequestPost({ request, env }) {
       .replace(/[^a-z0-9]+/g, "-")
       .replace(/^-|-$/g, "");
 
-  const sizes =
-    Array.isArray(b.sizes) && b.sizes.length
-      ? b.sizes
-      : ["S", "M", "L", "XL"];
+  const sizes = Array.isArray(b.sizes) && b.sizes.length
+    ? b.sizes
+    : ["S", "M", "L", "XL"];
 
-  const colors =
-    Array.isArray(b.colors) && b.colors.length
-      ? b.colors
-      : ["BLACK"];
-
-  /*
-   * Newer media system:
-   * {
-   *   gallery: [{src, color}, ...],
-   *   musicUrl: "...",
-   *   musicVolume: 0.35
-   * }
-   *
-   * Keep the older colorImages object compatible too.
-   */
-  const media =
-    b.media && typeof b.media === "object"
-      ? b.media
-      : {
-          gallery: Array.isArray(b.gallery) ? b.gallery : [],
-          musicUrl: b.musicUrl || "",
-          musicVolume: Number(b.musicVolume ?? 0.35)
-        };
+  const colors = Array.isArray(b.colors) && b.colors.length
+    ? b.colors
+    : ["BLACK"];
 
   const colorImages =
     b.colorImages && typeof b.colorImages === "object"
       ? b.colorImages
       : {};
-
-  if (!Array.isArray(media.gallery)) {
-    media.gallery = [];
-  }
-
-  if (!media.gallery.length && Object.keys(colorImages).length) {
-    media.gallery = Object.entries(colorImages).map(([color, src]) => ({
-      src,
-      color
-    }));
-  }
-
-  media.musicUrl = media.musicUrl || "";
-  media.musicVolume = Number(media.musicVolume ?? 0.35);
 
   await env.DB.prepare(`
     INSERT INTO products (
@@ -140,10 +92,9 @@ export async function onRequestPost({ request, env }) {
       featured,
       published,
       ceeprinto_product_id,
-      fulfillment_type,
       created_at
     )
-    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
   `).bind(
     id,
     b.name,
@@ -153,15 +104,14 @@ export async function onRequestPost({ request, env }) {
     b.compareAt ? Number(b.compareAt) : null,
     b.badge || "NEW",
     b.description || "",
-    b.image || media.gallery?.[0]?.src || "assets/no-signal-logo.png",
+    b.image || "assets/no-signal-logo.png",
     JSON.stringify(sizes),
     JSON.stringify(colors),
-    JSON.stringify(media),
+    JSON.stringify(colorImages),
     Number(b.stock || 0),
     b.featured ? 1 : 0,
     b.published === false ? 0 : 1,
     b.ceeprintoProductId || null,
-    b.fulfillmentType === "ceeprinto" ? "ceeprinto" : "internal",
     new Date().toISOString()
   ).run();
 
@@ -173,7 +123,6 @@ export async function onRequestDelete({ request, env }) {
   if (!auth.ok) return auth.response;
 
   let b;
-
   try {
     b = await request.json();
   } catch {
@@ -182,7 +131,8 @@ export async function onRequestDelete({ request, env }) {
 
   if (!b.id) return json({ error: "Missing product id." }, 400);
 
-  await env.DB.prepare("DELETE FROM products WHERE id=?")
+  await env.DB
+    .prepare("DELETE FROM products WHERE id=?")
     .bind(b.id)
     .run();
 

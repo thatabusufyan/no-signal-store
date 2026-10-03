@@ -1,5 +1,3 @@
-import { submitCeePrintoOrder } from "./ceeprinto.js";
-
 function json(data,status=200){return new Response(JSON.stringify(data),{status,headers:{"content-type":"application/json"}})}
 export async function onRequestPost({request,env}){
  if(!env.DB)return json({error:"Database is not configured yet."},503);let body;try{body=await request.json()}catch{return json({error:"Invalid JSON."},400)}

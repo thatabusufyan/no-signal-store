@@ -31,11 +31,24 @@ export async function onRequestGet({ env }) {
   `).all();
 
   return Response.json(
-    results.map(p => ({
-      ...p,
-      sizes: JSON.parse(p.sizes_json || "[]"),
-      colors: JSON.parse(p.colors_json || "[]"),
-      colorImages: JSON.parse(p.color_images_json || "{}")
-    }))
+    results.map(p => {
+      const media = JSON.parse(p.color_images_json || "{}");
+
+      const gallery = Array.isArray(media.gallery)
+        ? media.gallery
+        : Object.entries(media)
+            .filter(([k]) => !["gallery", "musicUrl", "musicVolume"].includes(k))
+            .map(([color, src]) => ({ src, color }));
+
+      return {
+        ...p,
+        sizes: JSON.parse(p.sizes_json || "[]"),
+        colors: JSON.parse(p.colors_json || "[]"),
+        colorImages: JSON.parse(p.color_images_json || "{}"),
+        gallery,
+        musicUrl: media.musicUrl || "",
+        musicVolume: Number(media.musicVolume ?? 0.35)
+      };
+    })
   );
 }

@@ -6,3 +6,7 @@ pages_build_output_dir = "."
 binding = "DB"
 database_name = "no-signal-db"
 database_id = "abc69744-c68d-4dda-821e-a177764bd2e9"
+
+[[r2_buckets]]
+binding = "MEDIA"
+bucket_name = "no-signal-media"

@@ -273,6 +273,16 @@ async function adminTab(tab="products"){
          <div class="admin-row order-row" data-order-index="${i}" style="cursor:pointer">
            <div>
              <b>${o.id}</b>
+<<<<<<< ours
+             <small>
+               ${o.customerName||"Customer"}
+               · ${o.phone||"No phone"}
+||||||| base
+             <small>
+               ${o.customerName||"Customer"}
+               · ${o.phone||"No phone"}
+               · ${o.paymentMethod||"payment"}
+=======
              <small style="display:block">
                CUSTOMER: ${o.customerName||"—"} · PHONE: ${o.phone||"—"} · EMAIL: ${o.email||"—"}
              </small>
@@ -284,10 +294,11 @@ async function adminTab(tab="products"){
              </small>
              <small style="display:block;color:#777;margin-top:4px">
                PAYMENT: ${o.paymentMethod||"—"} / ${o.paymentStatus||"pending"} · FULFILLMENT: ${o.fulfillmentStatus||"received"}
+>>>>>>> theirs
              </small>
            </div>
            <span>${money(o.total)}</span>
-           <span>${o.status||"received"}</span>
+           <span>${o.fulfillmentStatus||"received"}</span>
          </div>
        `).join("")}
      </div>
@@ -305,44 +316,127 @@ async function adminTab(tab="products"){
          <h2>${o.id}</h2>
 
          <div style="border:1px solid #333;padding:18px;margin:20px 0">
-           <p class="eyebrow">CUSTOMER</p>
+           <p class="eyebrow">CUSTOMER INFORMATION</p>
            <p><b>${o.customerName||"—"}</b></p>
-           <p class="muted">${o.phone||"—"}</p>
-           <p class="muted">${o.email||"—"}</p>
-           <p class="muted">
-             ${o.address||"—"}${o.city?`, ${o.city}`:""}${o.postalCode?` ${o.postalCode}`:""}
-           </p>
+           <p class="muted">PHONE: ${o.phone||"—"}</p>
+           <p class="muted">EMAIL: ${o.email||"—"}</p>
+           <p class="muted">CITY: ${o.city||"—"}</p>
+           <p class="muted">ADDRESS: ${o.address||"—"}</p>
+           <p class="muted">POSTAL CODE: ${o.postalCode||"—"}</p>
          </div>
 
-         <p class="eyebrow">ITEMS ORDERED</p>
+         <p class="eyebrow">WHAT THEY ORDERED</p>
 
          <div>
-           ${items.map(item=>`
+           ${items.length ? items.map(item=>`
              <div style="border-bottom:1px solid #222;padding:14px 0">
                <b>${item.name}</b>
-               <small style="display:block;color:#999;margin-top:5px">
-                 SIZE: ${item.size||"—"} · COLOR: ${item.color||"—"} · QTY: ${item.quantity}
+               <small style="display:block;color:#999;margin-top:6px">
+                 SIZE: ${item.size||"—"}
+                 · COLOR: ${item.color||"—"}
+                 · QTY: ${item.quantity}
                </small>
-               <small style="display:block;color:#666;margin-top:4px">
+               <small style="display:block;color:#666;margin-top:5px">
                  ${money(item.unitPrice)} each
                </small>
              </div>
-           `).join("")}
+           `).join("") : `
+             <p class="muted">No item details were saved for this order.</p>
+           `}
          </div>
 
-         <div style="margin-top:20px">
-           <p class="muted">SUBTOTAL <span style="float:right;color:white">${money(o.subtotal)}</span></p>
-           <p class="muted">SHIPPING <span style="float:right;color:white">${o.shipping?money(o.shipping):"FREE"}</span></p>
-           <h3>TOTAL <span style="float:right;color:var(--lime)">${money(o.total)}</span></h3>
+         <div style="margin-top:22px">
+           <p class="muted">
+             SUBTOTAL
+             <span style="float:right;color:white">${money(o.subtotal)}</span>
+           </p>
+
+           <p class="muted">
+             SHIPPING
+             <span style="float:right;color:white">
+               ${o.shipping?money(o.shipping):"FREE"}
+             </span>
+           </p>
+
+           <h3>
+             TOTAL
+             <span style="float:right;color:var(--lime)">
+               ${money(o.total)}
+             </span>
+           </h3>
          </div>
 
          <div style="border-top:1px solid #333;padding-top:20px;margin-top:20px">
+<<<<<<< ours
+           <p class="eyebrow">ORDER STATUS</p>
+
+           <p class="muted">
+             PAYMENT:
+             <b style="color:white">${o.paymentMethod||"—"}</b>
+           </p>
+
+           <p class="muted">
+             PAYMENT STATUS:
+             <b style="color:white">${o.paymentStatus||"pending"}</b>
+           </p>
+
+           <p class="muted">
+             FULFILLMENT:
+             <b style="color:var(--lime)">
+               ${o.fulfillmentStatus||"received"}
+             </b>
+           </p>
+
+           ${o.trackingNumber?`
+             <p class="muted">
+               TRACKING:
+               <b style="color:white">${o.trackingNumber}</b>
+             </p>
+           `:""}
+
+           ${o.ceeprintoOrderId?`
+             <p class="muted">
+               CEEPRINTO ORDER:
+               <b style="color:white">${o.ceeprintoOrderId}</b>
+             </p>
+             <button type="button"
+               class="button"
+               data-cp-refresh="${o.ceeprintoOrderId}"
+               style="margin-top:8px">
+               REFRESH CEEPRINTO STATUS
+             </button>
+           `:`
+             <button type="button"
+               class="button"
+               data-cp-send="${o.id}"
+               style="margin-top:10px">
+               SEND TO CEEPRINTO
+             </button>
+           `}
+
+           ${o.createdAt?`
+             <p class="muted">
+               ORDERED:
+               <b style="color:white">
+                 ${new Date(o.createdAt).toLocaleString()}
+               </b>
+             </p>
+           `:""}
+||||||| base
+           <p class="muted">PAYMENT: <b style="color:white">${o.paymentMethod||"—"}</b></p>
+           <p class="muted">PAYMENT STATUS: <b style="color:white">${o.paymentStatus||"pending"}</b></p>
+           <p class="muted">FULFILLMENT: <b style="color:white">${o.fulfillmentStatus||"received"}</b></p>
+           ${o.trackingNumber?`<p class="muted">TRACKING: <b style="color:white">${o.trackingNumber}</b></p>`:""}
+           ${o.ceeprintoOrderId?`<p class="muted">CEEPRINTO: <b style="color:white">${o.ceeprintoOrderId}</b></p>`:""}
+           ${o.createdAt?`<p class="muted">ORDERED: <b style="color:white">${new Date(o.createdAt).toLocaleString()}</b></p>`:""}
+=======
            <p class="muted">PAYMENT METHOD: <b style="color:white">${o.paymentMethod||"—"}</b></p>
            <p class="muted">PAYMENT STATUS: <b style="color:white">${o.paymentStatus||"pending"}</b> — this is not marked paid unless payment is actually confirmed.</p>
            <p class="muted">FULFILLMENT: <b style="color:white">${o.fulfillmentStatus||"received"}</b></p>
            ${o.trackingNumber?`<p class="muted">TRACKING: <b style="color:white">${o.trackingNumber}</b></p>`:""}
            ${o.ceeprintoOrderId?`<p class="muted">CEEPRINTO: <b style="color:white">${o.ceeprintoOrderId}</b></p>`:""}
            ${o.createdAt?`<p class="muted">ORDERED: <b style="color:white">${new Date(o.createdAt).toLocaleString()}</b></p>`:""}
+>>>>>>> theirs
          </div>
        `);
      });
@@ -354,6 +448,199 @@ async function adminTab(tab="products"){
   }
   $("#adminContent").innerHTML=html;
   $("#newProduct")?.addEventListener("click",()=>{
+<<<<<<< ours
+  $("#adminContent").innerHTML=`<form id="productForm" class="admin-form">
+    <input name="name" required placeholder="PRODUCT NAME">
+    <input name="price" required type="number" min="0" placeholder="PRICE PKR">
+    <input name="compareAt" type="number" min="0" placeholder="COMPARE-AT PRICE (OPTIONAL)">
+    <input name="category" required placeholder="CATEGORY (T-SHIRTS / HOODIES / ACCESSORIES)">
+    <input name="stock" required type="number" min="0" placeholder="STOCK">
+
+    <label style="display:block;font-size:10px;letter-spacing:.08em;color:#999;margin-top:12px">
+      FULFILLMENT
+    </label>
+    <select name="fulfillmentType">
+      <option value="internal">NO SIGNAL / INTERNAL</option>
+      <option value="ceeprinto">CEEPRINTO</option>
+    </select>
+
+    <input name="ceeprintoProductId" placeholder="CEEPRINTO PRODUCT / EXTERNAL PRODUCT ID (OPTIONAL)">
+
+    <input name="sizes" placeholder="SIZES: S,M,L,XL">
+    <input id="productColors" name="colors" placeholder="COLORS: BLACK,WHITE">
+    <button type="button" class="button" id="buildColorImages">SET COLOR IMAGES</button>
+
+    <div id="colorImageFields" style="margin-top:18px"></div>
+
+    <input name="badge" placeholder="BADGE (NEW / SALE / LIMITED)">
+
+    <label style="display:block;font-size:10px;letter-spacing:.08em;color:#999;margin-top:12px">
+      MAIN PRODUCT IMAGE
+    </label>
+    <input id="productImageFile" name="imageFile" type="file" accept="image/*">
+    <input id="productImageUrl" name="imageUrl" placeholder="OR IMAGE URL (OPTIONAL)">
+    <div id="productImagePreview" style="border:1px solid #333;padding:10px;margin:4px 0 10px;min-height:90px;display:flex;align-items:center;justify-content:center;color:#666;font-size:11px">
+      IMAGE PREVIEW
+    </div>
+
+    <textarea name="description" placeholder="DESCRIPTION"></textarea>
+    <button>CREATE PRODUCT</button>
+  </form>`;
+
+  const fileInput=$("#productImageFile");
+  const urlInput=$("#productImageUrl");
+  const preview=$("#productImagePreview");
+  const colorsInput=$("#productColors");
+  const colorFields=$("#colorImageFields");
+
+  let selectedImage="assets/no-signal-logo.png";
+
+  function imageFileToDataUrl(file){
+    return new Promise((resolve,reject)=>{
+      if(!file){
+        resolve("");
+        return;
+      }
+
+      if(!file.type.startsWith("image/")){
+        reject(new Error("Please choose an image file."));
+        return;
+      }
+
+      if(file.size>2*1024*1024){
+        reject(new Error("Please use an image smaller than 2 MB."));
+        return;
+      }
+
+      const reader=new FileReader();
+      reader.onload=()=>resolve(reader.result);
+      reader.onerror=()=>reject(new Error("Could not read the image."));
+      reader.readAsDataURL(file);
+    });
+  }
+
+  function showPreview(src){
+    selectedImage=src;
+    preview.innerHTML=`<img src="${src}" alt="Product preview" style="max-width:100%;max-height:220px;object-fit:contain;display:block">`;
+  }
+
+  function buildColorFields(){
+    const colors=(colorsInput.value||"BLACK")
+      .split(",")
+      .map(x=>x.trim())
+      .filter(Boolean);
+
+    colorFields.innerHTML=colors.map((color,i)=>`
+      <div style="border:1px solid #333;padding:14px;margin-bottom:12px">
+        <div style="font-size:11px;letter-spacing:.08em;color:white;margin-bottom:10px">
+          ${color.toUpperCase()}
+        </div>
+
+        <input type="file" accept="image/*" data-color-file="${color}">
+
+        <input
+          type="text"
+          placeholder="${color} IMAGE URL (OPTIONAL)"
+          data-color-url="${color}"
+          style="margin-top:8px"
+        >
+
+        <div
+          data-color-preview="${color}"
+          style="border:1px solid #222;padding:8px;margin-top:8px;min-height:70px;display:flex;align-items:center;justify-content:center;color:#666;font-size:10px"
+        >
+          NO COLOR IMAGE
+        </div>
+      </div>
+    `).join("");
+
+    colorFields.querySelectorAll("[data-color-file]").forEach(input=>{
+      input.addEventListener("change",async()=>{
+        const file=input.files?.[0];
+        if(!file)return;
+
+        try{
+          const src=await imageFileToDataUrl(file);
+          const box=input.parentElement.querySelector("[data-color-preview]");
+
+          if(box){
+            box.innerHTML=`<img src="${src}" alt="${input.dataset.colorFile}" style="max-width:100%;max-height:180px;object-fit:contain">`;
+          }
+        }catch(err){
+          alert(err.message);
+          input.value="";
+        }
+      });
+    });
+
+    colorFields.querySelectorAll("[data-color-url]").forEach(input=>{
+      input.addEventListener("input",()=>{
+        if(input.value.trim()){
+          const box=input.parentElement.querySelector("[data-color-preview]");
+
+          if(box){
+            box.innerHTML=`<img src="${input.value.trim()}" alt="${input.dataset.colorUrl}" style="max-width:100%;max-height:180px;object-fit:contain">`;
+          }
+        }
+      });
+    });
+  }
+
+  $("#buildColorImages").addEventListener("click",buildColorFields);
+
+  colorsInput.addEventListener("change",buildColorFields);
+
+  fileInput.addEventListener("change",async()=>{
+    const file=fileInput.files?.[0];
+    if(!file)return;
+
+    try{
+      const src=await imageFileToDataUrl(file);
+      showPreview(src);
+    }catch(err){
+      alert(err.message);
+      fileInput.value="";
+||||||| base
+  $("#adminContent").innerHTML=`<form id="productForm" class="admin-form">
+    <input name="name" required placeholder="PRODUCT NAME">
+    <input name="price" required type="number" min="0" placeholder="PRICE PKR">
+    <input name="compareAt" type="number" min="0" placeholder="COMPARE-AT PRICE (OPTIONAL)">
+    <input name="category" required placeholder="CATEGORY (T-SHIRTS / HOODIES / ACCESSORIES)">
+    <input name="stock" required type="number" min="0" placeholder="STOCK">
+    <input name="sizes" placeholder="SIZES: S,M,L,XL">
+    <input name="colors" placeholder="COLORS: BLACK,WHITE">
+    <input name="badge" placeholder="BADGE (NEW / SALE / LIMITED)">
+    <label style="display:block;font-size:10px;letter-spacing:.08em;color:#999;margin-top:4px">PRODUCT IMAGE</label>
+    <input id="productImageFile" name="imageFile" type="file" accept="image/*">
+    <input id="productImageUrl" name="imageUrl" placeholder="OR IMAGE URL (OPTIONAL)">
+    <div id="productImagePreview" style="border:1px solid #333;padding:10px;margin:4px 0 10px;min-height:90px;display:flex;align-items:center;justify-content:center;color:#666;font-size:11px">IMAGE PREVIEW</div>
+    <textarea name="description" placeholder="DESCRIPTION"></textarea>
+    <button>CREATE PRODUCT</button>
+  </form>`;
+
+  const fileInput=$("#productImageFile");
+  const urlInput=$("#productImageUrl");
+  const preview=$("#productImagePreview");
+  let selectedImage="assets/no-signal-logo.png";
+
+  function showPreview(src){
+    selectedImage=src;
+    preview.innerHTML=`<img src="${src}" alt="Product preview" style="max-width:100%;max-height:220px;object-fit:contain;display:block">`;
+  }
+
+  fileInput.addEventListener("change",()=>{
+    const file=fileInput.files?.[0];
+    if(!file)return;
+    if(!file.type.startsWith("image/")){
+      alert("Please choose an image file.");
+      fileInput.value="";
+      return;
+    }
+    if(file.size>2*1024*1024){
+      alert("Please use an image smaller than 2 MB.");
+      fileInput.value="";
+      return;
+=======
     $("#adminContent").innerHTML=`<form id="productForm" class="admin-form">
       <input name="name" required placeholder="PRODUCT NAME">
       <input name="price" required type="number" min="0" placeholder="PRICE PKR">
@@ -398,14 +685,85 @@ async function adminTab(tab="products"){
         .split(",")
         .map(x=>x.trim())
         .filter(Boolean);
+>>>>>>> theirs
+    }
+<<<<<<< ours
+  });
+||||||| base
+    const reader=new FileReader();
+    reader.onload=()=>showPreview(reader.result);
+    reader.readAsDataURL(file);
+  });
+=======
+>>>>>>> theirs
+
+<<<<<<< ours
+  urlInput.addEventListener("input",()=>{
+    const url=urlInput.value.trim();
+
+    if(url && !fileInput.files?.length){
+      showPreview(url);
     }
 
+    if(!url && !fileInput.files?.length){
+      selectedImage="assets/no-signal-logo.png";
+      preview.textContent="IMAGE PREVIEW";
+||||||| base
+  urlInput.addEventListener("input",()=>{
+    const url=urlInput.value.trim();
+    if(url && !fileInput.files?.length) showPreview(url);
+    if(!url && !fileInput.files?.length){
+      selectedImage="assets/no-signal-logo.png";
+      preview.textContent="IMAGE PREVIEW";
+=======
     function refreshColorInputs(){
       colorFields.querySelectorAll(".media-color").forEach(input=>{
         input.placeholder="TYPE COLOR (BLACK / WHITE / RED / etc.)";
       });
+>>>>>>> theirs
     }
 
+<<<<<<< ours
+  $("#productForm").onsubmit=async e=>{
+    e.preventDefault();
+
+    const d=Object.fromEntries(new FormData(e.target));
+
+    const colors=(d.colors||"BLACK")
+      .split(",")
+      .map(x=>x.trim())
+      .filter(Boolean);
+
+    const image=fileInput.files?.length
+      ? selectedImage
+      : (urlInput.value.trim() || "assets/no-signal-logo.png");
+
+    const colorImages={};
+
+    for(const color of colors){
+      const block=[...colorFields.querySelectorAll("[data-color-file]")]
+        .find(x=>x.dataset.colorFile===color);
+
+      const urlBlock=[...colorFields.querySelectorAll("[data-color-url]")]
+        .find(x=>x.dataset.colorUrl===color);
+
+      if(block?.files?.length){
+        try{
+          colorImages[color]=await imageFileToDataUrl(block.files[0]);
+        }catch(err){
+          alert(color + ": " + err.message);
+          return;
+        }
+      }else if(urlBlock?.value.trim()){
+        colorImages[color]=urlBlock.value.trim();
+      }
+    }
+||||||| base
+  $("#productForm").onsubmit=async e=>{
+    e.preventDefault();
+    const d=Object.fromEntries(new FormData(e.target));
+    const image=fileInput.files?.length ? selectedImage : (urlInput.value.trim() || "assets/no-signal-logo.png");
+=======
     function addMediaRow(container,type){
       const row=document.createElement("div");
       row.className="media-row";
@@ -439,12 +797,63 @@ async function adminTab(tab="products"){
         }
         try{show(URL.createObjectURL(f));}catch(_){}
       });
+>>>>>>> theirs
 
+<<<<<<< ours
+    try{
+      await adminFetch('/api/admin/products',{
+        method:'POST',
+        headers:{'content-type':'application/json'},
+        body:JSON.stringify({
+          name:d.name,
+          price:+d.price,
+          compareAt:d.compareAt?+d.compareAt:null,
+          category:d.category,
+          stock:+d.stock,
+          sizes:(d.sizes||'S,M,L,XL').split(',').map(x=>x.trim()).filter(Boolean),
+          colors,
+          colorImages,
+          badge:d.badge||'NEW',
+          description:d.description||'',
+          image
+        })
+||||||| base
+    try{
+      await adminFetch('/api/admin/products',{
+        method:'POST',
+        headers:{'content-type':'application/json'},
+        body:JSON.stringify({
+          name:d.name,
+          price:+d.price,
+          compareAt:d.compareAt?+d.compareAt:null,
+          category:d.category,
+          stock:+d.stock,
+          sizes:(d.sizes||'S,M,L,XL').split(',').map(x=>x.trim()).filter(Boolean),
+          colors:(d.colors||'BLACK').split(',').map(x=>x.trim()).filter(Boolean),
+          badge:d.badge||'NEW',
+          description:d.description||'',
+          image
+        })
+=======
       url.addEventListener("input",()=>{
         if(url.value.trim()&&!file.files?.length)show(url.value.trim());
+>>>>>>> theirs
       });
 
+<<<<<<< ours
+      await adminTab('products');
+      await loadProducts();
+
+    }catch(err){
+      alert(err.message);
+||||||| base
+      await adminTab('products');
+      await loadProducts();
+    }catch(err){
+      alert(err.message);
+=======
       row.querySelector(".remove-media").onclick=()=>row.remove();
+>>>>>>> theirs
     }
 
     colorsInput.addEventListener("input",refreshColorInputs);
@@ -562,3 +971,103 @@ async function loadProducts(){try{const r=await fetch('/api/products');if(r.ok){
 async function loadSettings(){try{const r=await fetch('/api/settings');if(r.ok)Object.assign(NO_SIGNAL.settings,await r.json())}catch(_){} }
 loadSettings().then(loadProducts);
 renderProducts();updateCounts();
+
+/* NO SIGNAL — CeePrinto admin actions */
+if (!window.__NO_SIGNAL_CEEPRINTO_EVENTS__) {
+  window.__NO_SIGNAL_CEEPRINTO_EVENTS__ = true;
+
+  document.addEventListener("click", async (event) => {
+    const sendButton = event.target.closest("[data-cp-send]");
+    const refreshButton = event.target.closest("[data-cp-refresh]");
+
+    if (sendButton) {
+      const orderId = sendButton.dataset.cpSend;
+
+      if (!orderId) return;
+
+      const original = sendButton.textContent;
+      sendButton.disabled = true;
+      sendButton.textContent = "SENDING...";
+
+      try {
+        const response = await fetch("/api/admin/ceeprinto", {
+          method: "POST",
+          headers: {
+            "content-type": "application/json"
+          },
+          credentials: "same-origin",
+          body: JSON.stringify({
+            action: "send-order",
+            orderId
+          })
+        });
+
+        const data = await response.json();
+
+        if (!response.ok || !data.ok) {
+          throw new Error(
+            data.error ||
+            data.message ||
+            "CeePrinto submission failed."
+          );
+        }
+
+        alert(
+          data.ceeprintoOrderId
+            ? `Sent to CeePrinto. Order ID: ${data.ceeprintoOrderId}`
+            : "Order accepted by CeePrinto."
+        );
+
+        location.reload();
+
+      } catch (error) {
+        alert(error.message || "CeePrinto submission failed.");
+        sendButton.disabled = false;
+        sendButton.textContent = original;
+      }
+    }
+
+    if (refreshButton) {
+      const cpOrderId = refreshButton.dataset.cpRefresh;
+
+      if (!cpOrderId) return;
+
+      const original = refreshButton.textContent;
+      refreshButton.disabled = true;
+      refreshButton.textContent = "CHECKING...";
+
+      try {
+        const response = await fetch("/api/admin/ceeprinto", {
+          method: "POST",
+          headers: {
+            "content-type": "application/json"
+          },
+          credentials: "same-origin",
+          body: JSON.stringify({
+            action: "get-order",
+            orderId: cpOrderId
+          })
+        });
+
+        const data = await response.json();
+
+        if (!response.ok || !data.ok) {
+          throw new Error(
+            data.error ||
+            data.message ||
+            "Could not retrieve CeePrinto status."
+          );
+        }
+
+        console.log("CeePrinto order:", data.data);
+        alert("CeePrinto status retrieved. Check the browser console for the full response.");
+
+      } catch (error) {
+        alert(error.message || "Could not retrieve CeePrinto status.");
+      } finally {
+        refreshButton.disabled = false;
+        refreshButton.textContent = original;
+      }
+    }
+  });
+}

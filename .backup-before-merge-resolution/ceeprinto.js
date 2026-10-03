@@ -1,3 +1,4 @@
+<<<<<<< ours
 const DEFAULT_BASE =
   "https://ceeprinto.com/wp-json/ceeprinto/v2";
 
@@ -9,9 +10,7 @@ function json(data, status = 200) {
 }
 
 function base(env) {
-  return String(
-    env.CEEPRINTO_API_BASE_URL || DEFAULT_BASE
-  ).replace(/\/+$/, "");
+  return String(env.CEEPRINTO_API_BASE_URL || DEFAULT_BASE).replace(/\/+$/, "");
 }
 
 function key(env) {
@@ -30,8 +29,47 @@ async function cpFetch(env, path, options = {}) {
         }
       }
     };
+||||||| base
+// CeePrinto adapter. The exact API base URL, authentication method and payload
+// must be supplied by CeePrinto for your seller account. Never expose the token
+// in browser code.
+export async function onRequestPost({ request, env }) {
+  if (!env.CEEPRINTO_API_BASE_URL || !env.CEEPRINTO_API_TOKEN) {
+    return Response.json({ ok: false, configured: false, message: "CeePrinto API credentials are not configured." }, { status: 503 });
+=======
+const DEFAULT_BASE="https://ceeprinto.com/wp-json/ceeprinto/v2";
+
+async function cpRequest(env,path,options={}){
+  const base=env.CEEPRINTO_API_BASE_URL||DEFAULT_BASE;
+  const headers={
+    "Authorization":`Bearer ${env.CEEPRINTO_API_TOKEN}`,
+    "Content-Type":"application/json",
+    ...(options.headers||{})
+  };
+  const r=await fetch(`${base}${path}`,{...options,headers});
+  let body={}; try{body=await r.json()}catch(_){}
+  if(!r.ok){
+    const e=body?.error;
+    throw new Error(e?.message||`CeePrinto request failed (${r.status})`);
+  }
+  return body;
+}
+
+export async function submitCeePrintoOrder({env,orderId,customer,items}){
+  if(!env.CEEPRINTO_API_TOKEN) return {configured:false,submitted:false};
+
+  let shopId=Number(env.CEEPRINTO_SHOP_ID||0);
+  if(!shopId){
+    const externalShopId=env.CEEPRINTO_EXTERNAL_SHOP_ID||"no-signal-store";
+    const shop=await cpRequest(env,"/shops",{method:"POST",body:JSON.stringify({
+      channel:"custom",external_shop_id:externalShopId,name:env.CEEPRINTO_SHOP_NAME||"NO SIGNAL"
+    })});
+    shopId=Number(shop?.data?.id||0);
+    if(!shopId) throw new Error("CeePrinto did not return a shop ID.");
+>>>>>>> theirs
   }
 
+<<<<<<< ours
   const headers = {
     Authorization: `Bearer ${key(env)}`,
     "Content-Type": "application/json",
@@ -45,16 +83,10 @@ async function cpFetch(env, path, options = {}) {
   });
 
   let body = null;
-
   try {
     body = await response.json();
   } catch {
-    body = {
-      error: {
-        code: "invalid_response",
-        message: "CeePrinto returned a non-JSON response."
-      }
-    };
+    body = { error: { code: "invalid_response", message: "CeePrinto returned a non-JSON response." } };
   }
 
   return {
@@ -74,11 +106,12 @@ async function getSetting(env, name) {
 }
 
 async function setSetting(env, name, value) {
-  await env.DB.prepare(`
-    INSERT INTO settings (key,value)
-    VALUES (?,?)
-    ON CONFLICT(key) DO UPDATE SET value=excluded.value
-  `)
+  await env.DB
+    .prepare(`
+      INSERT INTO settings (key,value)
+      VALUES (?,?)
+      ON CONFLICT(key) DO UPDATE SET value=excluded.value
+    `)
     .bind(name, String(value))
     .run();
 }
@@ -138,13 +171,9 @@ async function submitOrder(env, orderId) {
     FROM orders o
     JOIN customers c ON c.id=o.customer_id
     WHERE o.id=?
-  `)
-    .bind(orderId)
-    .first();
+  `).bind(orderId).first();
 
-  if (!order) {
-    throw new Error("NO SIGNAL order was not found.");
-  }
+  if (!order) throw new Error("NO SIGNAL order was not found.");
 
   const { results: items } = await env.DB.prepare(`
     SELECT
@@ -166,14 +195,10 @@ async function submitOrder(env, orderId) {
       AND COALESCE(cm.color,'')=COALESCE(oi.color,'')
     WHERE oi.order_id=?
     ORDER BY oi.id ASC
-  `)
-    .bind(orderId)
-    .all();
+  `).bind(orderId).all();
 
   const ceeItems = items.filter(
-    item =>
-      String(item.fulfillment_type || "internal").toLowerCase() ===
-      "ceeprinto"
+    item => String(item.fulfillment_type || "internal").toLowerCase() === "ceeprinto"
   );
 
   if (!ceeItems.length) {
@@ -206,23 +231,22 @@ async function submitOrder(env, orderId) {
     });
   }
 
+  const idempotencyKey = `no-signal-${orderId}`;
+
   const response = await cpFetch(env, "/orders", {
     method: "POST",
     headers: {
-      "Idempotency-Key": `no-signal-${orderId}`
+      "Idempotency-Key": idempotencyKey
     },
     body: JSON.stringify({
       shop_id: shopId,
-      external_order_id: orderId,
-      currency: "PKR",
       shipping_address: {
         name: order.name,
         email: order.email || undefined,
         phone: order.phone,
         city: order.city || "",
         address: order.address,
-        postal_code: order.postal_code || "",
-        country: "PK"
+        postal_code: order.postal_code || ""
       },
       line_items: lineItems
     })
@@ -248,9 +272,10 @@ async function submitOrder(env, orderId) {
       ceeprinto_order_id=?,
       fulfillment_status='submitted'
     WHERE id=?
-  `)
-    .bind(cpId ? String(cpId) : null, orderId)
-    .run();
+  `).bind(
+    cpId ? String(cpId) : null,
+    orderId
+  ).run();
 
   return {
     shopId,
@@ -260,12 +285,18 @@ async function submitOrder(env, orderId) {
 }
 
 export async function onRequestPost({ request, env }) {
-  if (!env.DB) {
-    return json({ error: "Database is not configured." }, 503);
-  }
+  if (!env.DB) return json({ error: "Database is not configured." }, 503);
 
   let body;
+||||||| base
+  let body;
+  try { body = await request.json(); } catch { return Response.json({ error: "Invalid JSON." }, { status: 400 }); }
+=======
+  const missing=items.filter(x=>!x.ceeprintoProductId);
+  if(missing.length) throw new Error("CeePrinto mapping is missing for one or more ordered products.");
+>>>>>>> theirs
 
+<<<<<<< ours
   try {
     body = await request.json();
   } catch {
@@ -285,15 +316,12 @@ export async function onRequestPost({ request, env }) {
 
       const me = await cpFetch(env, "/me");
 
-      return json(
-        {
-          ok: me.ok,
-          configured: true,
-          status: me.status,
-          data: me.body
-        },
-        me.ok ? 200 : me.status
-      );
+      return json({
+        ok: me.ok,
+        configured: true,
+        status: me.status,
+        data: me.body
+      }, me.ok ? 200 : me.status);
     }
 
     if (action === "connect") {
@@ -315,14 +343,11 @@ export async function onRequestPost({ request, env }) {
         `/shops/${shopId}/listings?page=${page}&per_page=${perPage}`
       );
 
-      return json(
-        {
-          ok: result.ok,
-          shopId,
-          data: result.body
-        },
-        result.status
-      );
+      return json({
+        ok: result.ok,
+        shopId,
+        data: result.body
+      }, result.status);
     }
 
     if (action === "send-order") {
@@ -332,13 +357,10 @@ export async function onRequestPost({ request, env }) {
 
       const result = await submitOrder(env, body.orderId);
 
-      return json(
-        {
-          ok: true,
-          ...result
-        },
-        202
-      );
+      return json({
+        ok: true,
+        ...result
+      }, 202);
     }
 
     if (action === "get-order") {
@@ -351,23 +373,70 @@ export async function onRequestPost({ request, env }) {
         `/orders/${encodeURIComponent(body.orderId)}`
       );
 
-      return json(
-        {
-          ok: result.ok,
-          data: result.body
-        },
-        result.status
-      );
+      return json({
+        ok: result.ok,
+        data: result.body
+      }, result.status);
     }
 
     return json({ error: "Unknown CeePrinto action." }, 400);
+
   } catch (error) {
-    return json(
-      {
-        ok: false,
-        error: error.message || "CeePrinto request failed."
-      },
-      500
-    );
+    return json({
+      ok: false,
+      error: error.message || "CeePrinto request failed."
+    }, 500);
   }
+||||||| base
+  // TODO: map this payload to the exact CeePrinto REST API contract provided for your account.
+  // This placeholder intentionally does not guess undocumented endpoints or fields.
+  return Response.json({ ok: false, configured: true, message: "CeePrinto credentials are present, but the account-specific API contract still needs to be mapped." }, { status: 501 });
+=======
+  const name=String(customer.name||"").trim().split(/\s+/);
+  const firstName=name.shift()||"Customer";
+  const lastName=name.join(" ");
+  const payload={
+    shop_id:shopId,
+    external_order_id:orderId,
+    currency:"PKR",
+    shipping_address:{
+      first_name:firstName,
+      last_name:lastName,
+      phone:customer.phone,
+      email:customer.email||undefined,
+      address_1:customer.address,
+      city:customer.city,
+      postcode:customer.postalCode||undefined,
+      country:"PK"
+    },
+    line_items:items.map(x=>({
+      external_variant_id:String(x.ceeprintoProductId),
+      quantity:Number(x.quantity),
+      customer_price:Number(x.unitPrice).toFixed(2),
+      customer_price_currency:"PKR",
+      customer_variant:[x.size,x.color].filter(Boolean).join(" / ")
+    }))
+  };
+
+  return {
+    configured:true,
+    submitted:true,
+    response:await cpRequest(env,"/orders",{
+      method:"POST",
+      headers:{"Idempotency-Key":`${env.CEEPRINTO_EXTERNAL_SHOP_ID||"no-signal-store"}:${orderId}`},
+      body:JSON.stringify(payload)
+    })
+  };
+}
+
+export async function onRequestPost({ request, env }) {
+  if(!env.CEEPRINTO_API_TOKEN) return Response.json({ok:false,configured:false,message:"CeePrinto API token is not configured."},{status:503});
+  let body; try{body=await request.json()}catch{return Response.json({error:"Invalid JSON."},{status:400})}
+  try{
+    const result=await submitCeePrintoOrder({env,orderId:body.orderId,customer:body.customer,items:body.items||[]});
+    return Response.json({ok:true,...result});
+  }catch(err){
+    return Response.json({ok:false,error:err.message},{status:502});
+  }
+>>>>>>> theirs
 }

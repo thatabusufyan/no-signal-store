@@ -11,17 +11,6 @@ let adminUnlocked = false;
 let currentCategory = "ALL";
 
 function playProductTransition(id){
-  const p=products.find(x=>x.id===id);
-  if(p?.musicUrl){
-    try{
-      if(window.noSignalProductAudio){window.noSignalProductAudio.pause();window.noSignalProductAudio.currentTime=0;}
-      const audio=new Audio(p.musicUrl);
-      audio.loop=true;
-      audio.volume=Math.max(0,Math.min(1,Number(p.musicVolume ?? 0.35)));
-      window.noSignalProductAudio=audio;
-      audio.play().catch(()=>{});
-    }catch(_){}
-  }
   const overlay=$("#productTransition");
   overlay.classList.remove("play"); void overlay.offsetWidth; overlay.classList.add("play");
   setTimeout(()=>{ productDetail(id); }, 1050);
@@ -33,22 +22,6 @@ function save(){localStorage.setItem("ns_cart",JSON.stringify(cart));localStorag
 function countBag(){return cart.reduce((a,x)=>a+x.qty,0)}
 function updateCounts(){$("#bagCount").textContent=countBag();$("#wishCount").textContent=wishlist.length}
 
-function normalizeGallery(p){
-  if(Array.isArray(p?.gallery)) return p.gallery.filter(x=>x&&x.src);
-  const legacy=p?.colorImages||{};
-  return Object.entries(legacy).filter(([k])=>k!=="gallery").map(([color,src])=>({src,color}));
-}
-function getMainImages(p){
-  const g=normalizeGallery(p), main=g.filter(x=>!x.color||x.type==="main");
-  return main.length?main:g;
-}
-function getColorImages(p,color){
-  const g=normalizeGallery(p), wanted=String(color||"").toLowerCase();
-  const matching=g.filter(x=>x.color&&String(x.color).toLowerCase()===wanted);
-  return matching.length?matching:getMainImages(p);
-}
-function getColorImage(p,color){return getColorImages(p,color)[0]?.src||p?.image||"assets/no-signal-logo.png";}
-
 function renderProducts(){
   const q=($("#searchInput")?.value||"").toLowerCase();
   const list=products.filter(p=>(currentCategory==="ALL"||p.category===currentCategory)&&(!q||`${p.name} ${p.category} ${p.description}`.toLowerCase().includes(q)));
@@ -57,7 +30,7 @@ function renderProducts(){
       <div class="product-image" data-product="${p.id}">
         <span class="product-badge">${p.badge||"CORE"}</span>
         <button class="heart ${wishlist.includes(p.id)?"on":""}" data-wish="${p.id}">${wishlist.includes(p.id)?"♥":"♡"}</button>
-        <img class="catalogue-product-image" src="${getMainImages(p)[0]?.src||p.image||"assets/no-signal-logo.png"}" alt="${p.name}">
+        <img class="catalogue-product-image" src="${p.image}" alt="${p.name}">
         ${Array.isArray(p.colors)&&p.colors.length>1?`
           <div class="catalogue-colors">
             ${p.colors.map((c,i)=>`
@@ -81,37 +54,20 @@ function renderProducts(){
 }
 
 function openDrawer(html){$("#drawerContent").innerHTML=html;$("#drawer").classList.add("open");$("#drawer").setAttribute("aria-hidden","false")}
-function closeDrawer(){
-  if(window.noSignalProductAudio){try{window.noSignalProductAudio.pause();window.noSignalProductAudio.currentTime=0}catch(_){} window.noSignalProductAudio=null;}
-  $("#drawer").classList.remove("open");$("#drawer").setAttribute("aria-hidden","true")
-}
+function closeDrawer(){$("#drawer").classList.remove("open");$("#drawer").setAttribute("aria-hidden","true")}
 
 function productDetail(id){
  const p=products.find(x=>x.id===id); if(!p)return;
 
  const sizes=Array.isArray(p.sizes)&&p.sizes.length?p.sizes:["S","M","L","XL"];
  const colors=Array.isArray(p.colors)&&p.colors.length?p.colors:["BLACK"];
- const gallery=normalizeGallery(p);
- const firstColor=colors[0]||"";
- const initialImages=getMainImages(p);
-
- if(window.noSignalProductAudio){try{window.noSignalProductAudio.pause();window.noSignalProductAudio.currentTime=0}catch(_){}}
- window.noSignalProductAudio=null;
 
  openDrawer(`
   <p class="eyebrow">${p.category} / ${p.id}</p>
   <h2>${p.name}</h2>
   <div class="drawer-img">
-    <img id="detailProductImage" src="${initialImages[0]?.src||p.image}" alt="${p.name}">
+    <img id="detailProductImage" src="${p.image}" alt="${p.name}">
   </div>
-
-  <div id="productImageRail" style="display:flex;gap:8px;overflow-x:auto;padding:12px 0">
-    ${initialImages.map((img,i)=>`
-      <button type="button" class="product-thumb ${i===0?"selected":""}" data-gallery-src="${img.src}" style="flex:0 0 68px;height:68px;padding:3px;background:#111;border:1px solid ${i===0?"var(--lime)":"#333"}">
-        <img src="${img.src}" alt="" style="width:100%;height:100%;object-fit:cover">
-      </button>`).join("")}
-  </div>
-
   <div class="drawer-price">${money(p.price)}</div>
   <p class="muted">${p.description||""}</p>
 
@@ -128,23 +84,12 @@ function productDetail(id){
   <button class="button button-lime full" id="addToBag"
     data-id="${p.id}"
     data-selected-size="${sizes[0]}"
-    data-selected-color="${firstColor}">
+    data-selected-color="${colors[0]}">
     ADD TO BAG <span>+</span>
   </button>
  `);
 
  const drawer=$("#drawerContent");
-
- function renderGallery(color){
-   const imgs=getColorImages(p,color);
-   const main=$("#detailProductImage");
-   const rail=$("#productImageRail");
-   if(main) main.src=imgs[0]?.src||p.image;
-   if(rail) rail.innerHTML=imgs.map((img,i)=>`
-     <button type="button" class="product-thumb ${i===0?"selected":""}" data-gallery-src="${img.src}" style="flex:0 0 68px;height:68px;padding:3px;background:#111;border:1px solid ${i===0?"var(--lime)":"#333"}">
-       <img src="${img.src}" alt="" style="width:100%;height:100%;object-fit:cover">
-     </button>`).join("");
- }
 
  drawer.querySelectorAll("[data-size]").forEach(btn=>{
    btn.addEventListener("click",()=>{
@@ -159,20 +104,8 @@ function productDetail(id){
      drawer.querySelectorAll("[data-color]").forEach(x=>x.classList.remove("selected"));
      btn.classList.add("selected");
      $("#addToBag").dataset.selectedColor=btn.dataset.color;
-     renderGallery(btn.dataset.color);
    });
  });
-
- drawer.addEventListener("click",e=>{
-   const thumb=e.target.closest("[data-gallery-src]");
-   if(!thumb)return;
-   const img=$("#detailProductImage");
-   if(img)img.src=thumb.dataset.gallerySrc;
-   drawer.querySelectorAll("[data-gallery-src]").forEach(x=>x.style.borderColor="#333");
-   thumb.style.borderColor="var(--lime)";
- });
-
-
 }
 
 function cartView(){
@@ -239,7 +172,7 @@ function add(id,size,color){
  if(item){
    item.qty++;
  }else{
-   cart.push({...p,image:getColorImage(p,color),qty:1,size,color});
+   cart.push({...p,qty:1,size,color});
  }
 
  save();
@@ -252,8 +185,8 @@ function checkout(){
  const subtotal=cart.reduce((a,x)=>a+x.price*x.qty,0);
  const shipping=subtotal>=NO_SIGNAL.settings.freeShippingAbove?0:NO_SIGNAL.settings.shippingFee;
  const total=subtotal+shipping;
- openDrawer(`<p class="eyebrow">CHECKOUT / ${money(total)}</p><h2>YOUR DETAILS.</h2><form id="checkoutForm" class="admin-form"><input name="name" required placeholder="FULL NAME"><input name="phone" required placeholder="PHONE"><input name="email" required type="email" placeholder="EMAIL"><input name="city" required placeholder="CITY"><textarea name="address" required placeholder="COMPLETE DELIVERY ADDRESS"></textarea><input name="postalCode" placeholder="POSTAL CODE"><select name="paymentMethod" style="background:#0d0d0d;border:1px solid #333;color:white;padding:13px;font:10px Space Mono"><option value="cod">Cash on Delivery</option></select><p class="muted" style="font-size:10px">Payment remains pending until the buyer actually pays. CeePrinto can collect COD after the order is accepted.</p><button>PLACE ORDER</button></form>`);
- $("#checkoutForm").onsubmit=async e=>{e.preventDefault();const data=Object.fromEntries(new FormData(e.target));const payload={customer:data,paymentMethod:data.paymentMethod,shipping,items:cart.map(x=>({productId:x.id,name:x.name,size:x.size||"",color:x.color||"",quantity:x.qty,unitPrice:x.price}))};try{const r=await fetch('/api/orders',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(payload)});const out=await r.json();if(!r.ok)throw new Error(out.error||'Order failed');const orderId=out.orderId;cart=[];save();updateCounts();openDrawer(`<p class="eyebrow">ORDER RECEIVED</p><h2>THANK YOU.</h2><p class="muted">Your NO SIGNAL order has been received. PAYMENT STATUS: PENDING.</p><div style="border:1px solid var(--lime);padding:20px;margin-top:30px">ORDER NUMBER<br><strong style="font-size:24px;color:var(--lime)">${orderId}</strong></div>`)}catch(err){alert(err.message)}}
+ openDrawer(`<p class="eyebrow">CHECKOUT / ${money(total)}</p><h2>YOUR DETAILS.</h2><form id="checkoutForm" class="admin-form"><input name="name" required placeholder="FULL NAME"><input name="phone" required placeholder="PHONE"><input name="email" required type="email" placeholder="EMAIL"><input name="city" required placeholder="CITY"><textarea name="address" required placeholder="COMPLETE DELIVERY ADDRESS"></textarea><input name="postalCode" placeholder="POSTAL CODE"><select name="paymentMethod" style="background:#0d0d0d;border:1px solid #333;color:white;padding:13px;font:10px Space Mono"><option value="cod">Cash on Delivery</option><option value="online">Online Payment</option></select><button>PLACE ORDER</button></form>`);
+ $("#checkoutForm").onsubmit=async e=>{e.preventDefault();const data=Object.fromEntries(new FormData(e.target));const payload={customer:data,paymentMethod:data.paymentMethod,shipping,items:cart.map(x=>({productId:x.id,name:x.name,size:x.size||"",color:x.color||"",quantity:x.qty,unitPrice:x.price}))};try{const r=await fetch('/api/orders',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(payload)});const out=await r.json();if(!r.ok)throw new Error(out.error||'Order failed');const orderId=out.orderId;cart=[];save();updateCounts();openDrawer(`<p class="eyebrow">ORDER CONFIRMED</p><h2>THANK YOU.</h2><p class="muted">Your NO SIGNAL order has been received.</p><div style="border:1px solid var(--lime);padding:20px;margin-top:30px">ORDER NUMBER<br><strong style="font-size:24px;color:var(--lime)">${orderId}</strong></div>`)}catch(err){alert(err.message)}}
 }
 async function adminFetch(url, options={}){const r=await fetch(url,{credentials:'same-origin',...options});let data={};try{data=await r.json()}catch{}if(r.status===401){adminUnlocked=false;throw new Error('SESSION_EXPIRED')}if(!r.ok)throw new Error(data.error||'Request failed');return data}
 
@@ -273,21 +206,13 @@ async function adminTab(tab="products"){
          <div class="admin-row order-row" data-order-index="${i}" style="cursor:pointer">
            <div>
              <b>${o.id}</b>
-             <small style="display:block">
-               CUSTOMER: ${o.customerName||"—"} · PHONE: ${o.phone||"—"} · EMAIL: ${o.email||"—"}
-             </small>
-             <small style="display:block;color:#777;margin-top:4px">
-               ${o.city||"—"} · ${o.address||"—"} · ${o.postalCode||"—"}
-             </small>
-             <small style="display:block;color:#777;margin-top:4px">
-               ITEMS: ${(o.items||[]).map(i=>`${i.name} / ${i.size||"—"} / ${i.color||"—"} × ${i.quantity}`).join(" · ")||"—"}
-             </small>
-             <small style="display:block;color:#777;margin-top:4px">
-               PAYMENT: ${o.paymentMethod||"—"} / ${o.paymentStatus||"pending"} · FULFILLMENT: ${o.fulfillmentStatus||"received"}
+             <small>
+               ${o.customerName||"Customer"}
+               · ${o.phone||"No phone"}
              </small>
            </div>
            <span>${money(o.total)}</span>
-           <span>${o.status||"received"}</span>
+           <span>${o.fulfillmentStatus||"received"}</span>
          </div>
        `).join("")}
      </div>
@@ -305,44 +230,98 @@ async function adminTab(tab="products"){
          <h2>${o.id}</h2>
 
          <div style="border:1px solid #333;padding:18px;margin:20px 0">
-           <p class="eyebrow">CUSTOMER</p>
+           <p class="eyebrow">CUSTOMER INFORMATION</p>
            <p><b>${o.customerName||"—"}</b></p>
-           <p class="muted">${o.phone||"—"}</p>
-           <p class="muted">${o.email||"—"}</p>
-           <p class="muted">
-             ${o.address||"—"}${o.city?`, ${o.city}`:""}${o.postalCode?` ${o.postalCode}`:""}
-           </p>
+           <p class="muted">PHONE: ${o.phone||"—"}</p>
+           <p class="muted">EMAIL: ${o.email||"—"}</p>
+           <p class="muted">CITY: ${o.city||"—"}</p>
+           <p class="muted">ADDRESS: ${o.address||"—"}</p>
+           <p class="muted">POSTAL CODE: ${o.postalCode||"—"}</p>
          </div>
 
-         <p class="eyebrow">ITEMS ORDERED</p>
+         <p class="eyebrow">WHAT THEY ORDERED</p>
 
          <div>
-           ${items.map(item=>`
+           ${items.length ? items.map(item=>`
              <div style="border-bottom:1px solid #222;padding:14px 0">
                <b>${item.name}</b>
-               <small style="display:block;color:#999;margin-top:5px">
-                 SIZE: ${item.size||"—"} · COLOR: ${item.color||"—"} · QTY: ${item.quantity}
+               <small style="display:block;color:#999;margin-top:6px">
+                 SIZE: ${item.size||"—"}
+                 · COLOR: ${item.color||"—"}
+                 · QTY: ${item.quantity}
                </small>
-               <small style="display:block;color:#666;margin-top:4px">
+               <small style="display:block;color:#666;margin-top:5px">
                  ${money(item.unitPrice)} each
                </small>
              </div>
-           `).join("")}
+           `).join("") : `
+             <p class="muted">No item details were saved for this order.</p>
+           `}
          </div>
 
-         <div style="margin-top:20px">
-           <p class="muted">SUBTOTAL <span style="float:right;color:white">${money(o.subtotal)}</span></p>
-           <p class="muted">SHIPPING <span style="float:right;color:white">${o.shipping?money(o.shipping):"FREE"}</span></p>
-           <h3>TOTAL <span style="float:right;color:var(--lime)">${money(o.total)}</span></h3>
+         <div style="margin-top:22px">
+           <p class="muted">
+             SUBTOTAL
+             <span style="float:right;color:white">${money(o.subtotal)}</span>
+           </p>
+
+           <p class="muted">
+             SHIPPING
+             <span style="float:right;color:white">
+               ${o.shipping?money(o.shipping):"FREE"}
+             </span>
+           </p>
+
+           <h3>
+             TOTAL
+             <span style="float:right;color:var(--lime)">
+               ${money(o.total)}
+             </span>
+           </h3>
          </div>
 
          <div style="border-top:1px solid #333;padding-top:20px;margin-top:20px">
-           <p class="muted">PAYMENT METHOD: <b style="color:white">${o.paymentMethod||"—"}</b></p>
-           <p class="muted">PAYMENT STATUS: <b style="color:white">${o.paymentStatus||"pending"}</b> — this is not marked paid unless payment is actually confirmed.</p>
-           <p class="muted">FULFILLMENT: <b style="color:white">${o.fulfillmentStatus||"received"}</b></p>
-           ${o.trackingNumber?`<p class="muted">TRACKING: <b style="color:white">${o.trackingNumber}</b></p>`:""}
-           ${o.ceeprintoOrderId?`<p class="muted">CEEPRINTO: <b style="color:white">${o.ceeprintoOrderId}</b></p>`:""}
-           ${o.createdAt?`<p class="muted">ORDERED: <b style="color:white">${new Date(o.createdAt).toLocaleString()}</b></p>`:""}
+           <p class="eyebrow">ORDER STATUS</p>
+
+           <p class="muted">
+             PAYMENT:
+             <b style="color:white">${o.paymentMethod||"—"}</b>
+           </p>
+
+           <p class="muted">
+             PAYMENT STATUS:
+             <b style="color:white">${o.paymentStatus||"pending"}</b>
+           </p>
+
+           <p class="muted">
+             FULFILLMENT:
+             <b style="color:var(--lime)">
+               ${o.fulfillmentStatus||"received"}
+             </b>
+           </p>
+
+           ${o.trackingNumber?`
+             <p class="muted">
+               TRACKING:
+               <b style="color:white">${o.trackingNumber}</b>
+             </p>
+           `:""}
+
+           ${o.ceeprintoOrderId?`
+             <p class="muted">
+               CEEPRINTO ORDER:
+               <b style="color:white">${o.ceeprintoOrderId}</b>
+             </p>
+           `:""}
+
+           ${o.createdAt?`
+             <p class="muted">
+               ORDERED:
+               <b style="color:white">
+                 ${new Date(o.createdAt).toLocaleString()}
+               </b>
+             </p>
+           `:""}
          </div>
        `);
      });
@@ -354,158 +333,224 @@ async function adminTab(tab="products"){
   }
   $("#adminContent").innerHTML=html;
   $("#newProduct")?.addEventListener("click",()=>{
-    $("#adminContent").innerHTML=`<form id="productForm" class="admin-form">
-      <input name="name" required placeholder="PRODUCT NAME">
-      <input name="price" required type="number" min="0" placeholder="PRICE PKR">
-      <input name="compareAt" type="number" min="0" placeholder="COMPARE-AT PRICE (OPTIONAL)">
-      <input name="category" required placeholder="CATEGORY (T-SHIRTS / HOODIES / ACCESSORIES)">
-      <input name="stock" required type="number" min="0" placeholder="STOCK">
-      <input name="sizes" placeholder="SIZES: S,M,L,XL">
-      <input name="colors" placeholder="COLORS: BLACK,WHITE,RED">
-      <input name="badge" placeholder="BADGE (NEW / SALE / LIMITED)">
-      <input name="ceeprintoProductId" placeholder="CEEPRINTO VARIANT ID (OPTIONAL)">
+  $("#adminContent").innerHTML=`<form id="productForm" class="admin-form">
+    <input name="name" required placeholder="PRODUCT NAME">
+    <input name="price" required type="number" min="0" placeholder="PRICE PKR">
+    <input name="compareAt" type="number" min="0" placeholder="COMPARE-AT PRICE (OPTIONAL)">
+    <input name="category" required placeholder="CATEGORY (T-SHIRTS / HOODIES / ACCESSORIES)">
+    <input name="stock" required type="number" min="0" placeholder="STOCK">
+    <input name="sizes" placeholder="SIZES: S,M,L,XL">
+    <input id="productColors" name="colors" placeholder="COLORS: BLACK,WHITE">
+    <button type="button" class="button" id="buildColorImages">SET COLOR IMAGES</button>
 
-      <label style="display:block;font-size:10px;letter-spacing:.08em;color:#999;margin-top:14px">MAIN PRODUCT IMAGES</label>
-      <p class="muted" style="font-size:10px">Add as many main images as you want. These are the default product gallery.</p>
-      <button type="button" class="button" id="addMainImage">+ ADD MAIN IMAGE</button>
-      <div id="mainImageFields"></div>
+    <div id="colorImageFields" style="margin-top:18px"></div>
 
-      <label style="display:block;font-size:10px;letter-spacing:.08em;color:#999;margin-top:22px">COLOR-SPECIFIC IMAGES</label>
-      <p class="muted" style="font-size:10px">Add unlimited images. Each image gets its own color assignment. Example: BLACK → 3 images, WHITE → 4 images.</p>
-      <button type="button" class="button" id="addColorImage">+ ADD COLOR IMAGE</button>
-      <div id="colorImageFields"></div>
+    <input name="badge" placeholder="BADGE (NEW / SALE / LIMITED)">
 
-      <label style="display:block;font-size:10px;letter-spacing:.08em;color:#999;margin-top:22px">PRODUCT MUSIC (OPTIONAL)</label>
-      <input id="musicUrl" placeholder="MUSIC URL (OPTIONAL)">
-      <p class="muted" style="font-size:10px">Use a direct audio URL. File uploads are disabled because the store is using URL-based media without R2.</p>
-      <label style="display:block;font-size:10px;letter-spacing:.08em;color:#999;margin-top:8px">MUSIC VOLUME: <span id="musicVolumeValue">35%</span></label>
-      <input id="musicVolume" type="range" min="0" max="100" value="35" step="1">
+    <label style="display:block;font-size:10px;letter-spacing:.08em;color:#999;margin-top:12px">
+      MAIN PRODUCT IMAGE
+    </label>
+    <input id="productImageFile" name="imageFile" type="file" accept="image/*">
+    <input id="productImageUrl" name="imageUrl" placeholder="OR IMAGE URL (OPTIONAL)">
+    <div id="productImagePreview" style="border:1px solid #333;padding:10px;margin:4px 0 10px;min-height:90px;display:flex;align-items:center;justify-content:center;color:#666;font-size:11px">
+      IMAGE PREVIEW
+    </div>
 
-      <textarea name="description" placeholder="DESCRIPTION"></textarea>
-      <button>CREATE PRODUCT</button>
-    </form>`;
+    <textarea name="description" placeholder="DESCRIPTION"></textarea>
+    <button>CREATE PRODUCT</button>
+  </form>`;
 
-    const mainFields=$("#mainImageFields");
-    const colorFields=$("#colorImageFields");
-    const musicUrl=$("#musicUrl");
-    const musicVolume=$("#musicVolume");
-    const musicVolumeValue=$("#musicVolumeValue");
+  const fileInput=$("#productImageFile");
+  const urlInput=$("#productImageUrl");
+  const preview=$("#productImagePreview");
+  const colorsInput=$("#productColors");
+  const colorFields=$("#colorImageFields");
 
-    const colorsInput=$("#productForm [name='colors']");
+  let selectedImage="assets/no-signal-logo.png";
 
-    function getColors(){
-      return (colorsInput.value||"BLACK")
-        .split(",")
-        .map(x=>x.trim())
-        .filter(Boolean);
-    }
-
-    function refreshColorInputs(){
-      colorFields.querySelectorAll(".media-color").forEach(input=>{
-        input.placeholder="TYPE COLOR (BLACK / WHITE / RED / etc.)";
-      });
-    }
-
-    function addMediaRow(container,type){
-      const row=document.createElement("div");
-      row.className="media-row";
-      row.style="border:1px solid #333;padding:14px;margin:10px 0";
-      row.innerHTML=`
-        <div class="muted" style="font-size:9px;margin-bottom:8px">${type==="color"?"COLOR-SPECIFIC IMAGE":"MAIN PRODUCT IMAGE"}</div>
-        <input type="file" class="media-file" accept="image/*">
-        <input type="text" class="media-url" placeholder="OR IMAGE URL" style="margin-top:7px">
-        ${type==="color"?`<select class="media-color" style="margin-top:7px;background:#0d0d0d;color:white;border:1px solid #333;padding:10px;width:100%">${colorOptions()}</select>`:""}
-        <div class="media-preview" style="border:1px solid #222;padding:8px;margin-top:8px;min-height:60px;color:#666;font-size:10px">IMAGE PREVIEW</div>
-        <button type="button" class="button remove-media" style="margin-top:8px">REMOVE</button>`;
-      container.appendChild(row);
-
-      const file=row.querySelector(".media-file");
-      const url=row.querySelector(".media-url");
-      const preview=row.querySelector(".media-preview");
-      const show=src=>preview.innerHTML=`<img src="${src}" alt="" style="max-width:100%;max-height:160px;object-fit:contain;display:block">`;
-
-      file.addEventListener("change",()=>{
-        const f=file.files?.[0];
-        if(!f)return;
-        if(!f.type.startsWith("image/")){
-          alert("Please choose an image.");
-          file.value="";
-          return;
-        }
-        if(f.size>10*1024*1024){
-          alert("Each image must be 10 MB or smaller.");
-          file.value="";
-          return;
-        }
-        try{show(URL.createObjectURL(f));}catch(_){}
-      });
-
-      url.addEventListener("input",()=>{
-        if(url.value.trim()&&!file.files?.length)show(url.value.trim());
-      });
-
-      row.querySelector(".remove-media").onclick=()=>row.remove();
-    }
-
-    colorsInput.addEventListener("input",refreshColorInputs);
-    $("#addMainImage").addEventListener("click",()=>addMediaRow(mainFields,"main"));
-    $("#addColorImage").addEventListener("click",()=>addMediaRow(colorFields,"color"));
-    addMediaRow(mainFields,"main");
-    addMediaRow(colorFields,"color");
-    addMediaRow(colorFields,"color");
-    musicVolume.addEventListener("input",()=>musicVolumeValue.textContent=`${musicVolume.value}%`);
-
-    async function uploadMedia(file){
-      const fd=new FormData();
-      fd.append("file",file);
-      const r=await fetch("/api/admin/media",{method:"POST",credentials:"same-origin",body:fd});
-      let out={}; try{out=await r.json()}catch(_){}
-      if(!r.ok)throw new Error(out.error||"Media upload failed");
-      return out.url;
-    }
-
-    async function collect(container,type){
-      const gallery=[];
-      for(const row of container.querySelectorAll("div")){
-        if(!row.querySelector(".media-file"))continue;
-        const file=row.querySelector(".media-file")?.files?.[0];
-        const url=row.querySelector(".media-url")?.value.trim();
-        const color=type==="color"?(row.querySelector(".media-color")?.value||""):"";
-        if(type==="color"&&!color)throw new Error("Select a color for every color-specific image.");
-        let src=url;
-        if(file)src=await uploadMedia(file);
-        if(src)gallery.push({src,color,type});
+  function imageFileToDataUrl(file){
+    return new Promise((resolve,reject)=>{
+      if(!file){
+        resolve("");
+        return;
       }
-      return gallery;
+
+      if(!file.type.startsWith("image/")){
+        reject(new Error("Please choose an image file."));
+        return;
+      }
+
+      if(file.size>2*1024*1024){
+        reject(new Error("Please use an image smaller than 2 MB."));
+        return;
+      }
+
+      const reader=new FileReader();
+      reader.onload=()=>resolve(reader.result);
+      reader.onerror=()=>reject(new Error("Could not read the image."));
+      reader.readAsDataURL(file);
+    });
+  }
+
+  function showPreview(src){
+    selectedImage=src;
+    preview.innerHTML=`<img src="${src}" alt="Product preview" style="max-width:100%;max-height:220px;object-fit:contain;display:block">`;
+  }
+
+  function buildColorFields(){
+    const colors=(colorsInput.value||"BLACK")
+      .split(",")
+      .map(x=>x.trim())
+      .filter(Boolean);
+
+    colorFields.innerHTML=colors.map((color,i)=>`
+      <div style="border:1px solid #333;padding:14px;margin-bottom:12px">
+        <div style="font-size:11px;letter-spacing:.08em;color:white;margin-bottom:10px">
+          ${color.toUpperCase()}
+        </div>
+
+        <input type="file" accept="image/*" data-color-file="${color}">
+
+        <input
+          type="text"
+          placeholder="${color} IMAGE URL (OPTIONAL)"
+          data-color-url="${color}"
+          style="margin-top:8px"
+        >
+
+        <div
+          data-color-preview="${color}"
+          style="border:1px solid #222;padding:8px;margin-top:8px;min-height:70px;display:flex;align-items:center;justify-content:center;color:#666;font-size:10px"
+        >
+          NO COLOR IMAGE
+        </div>
+      </div>
+    `).join("");
+
+    colorFields.querySelectorAll("[data-color-file]").forEach(input=>{
+      input.addEventListener("change",async()=>{
+        const file=input.files?.[0];
+        if(!file)return;
+
+        try{
+          const src=await imageFileToDataUrl(file);
+          const box=input.parentElement.querySelector("[data-color-preview]");
+
+          if(box){
+            box.innerHTML=`<img src="${src}" alt="${input.dataset.colorFile}" style="max-width:100%;max-height:180px;object-fit:contain">`;
+          }
+        }catch(err){
+          alert(err.message);
+          input.value="";
+        }
+      });
+    });
+
+    colorFields.querySelectorAll("[data-color-url]").forEach(input=>{
+      input.addEventListener("input",()=>{
+        if(input.value.trim()){
+          const box=input.parentElement.querySelector("[data-color-preview]");
+
+          if(box){
+            box.innerHTML=`<img src="${input.value.trim()}" alt="${input.dataset.colorUrl}" style="max-width:100%;max-height:180px;object-fit:contain">`;
+          }
+        }
+      });
+    });
+  }
+
+  $("#buildColorImages").addEventListener("click",buildColorFields);
+
+  colorsInput.addEventListener("change",buildColorFields);
+
+  fileInput.addEventListener("change",async()=>{
+    const file=fileInput.files?.[0];
+    if(!file)return;
+
+    try{
+      const src=await imageFileToDataUrl(file);
+      showPreview(src);
+    }catch(err){
+      alert(err.message);
+      fileInput.value="";
+    }
+  });
+
+  urlInput.addEventListener("input",()=>{
+    const url=urlInput.value.trim();
+
+    if(url && !fileInput.files?.length){
+      showPreview(url);
     }
 
-    $("#productForm").onsubmit=async e=>{
-      e.preventDefault();
-      const d=Object.fromEntries(new FormData(e.target));
-      try{
-        const gallery=[...(await collect(mainFields,"main")),...(await collect(colorFields,"color"))];
-        const music=d.musicUrl||"";
-
-        const image=(gallery.find(x=>x.type==="main")||gallery[0])?.src||"assets/no-signal-logo.png";
-
-        await adminFetch("/api/admin/products",{
-          method:"POST",
-          headers:{"content-type":"application/json"},
-          body:JSON.stringify({
-            name:d.name,price:+d.price,compareAt:d.compareAt?+d.compareAt:null,
-            category:d.category,stock:+d.stock,
-            sizes:(d.sizes||"S,M,L,XL").split(",").map(x=>x.trim()).filter(Boolean),
-            colors:(d.colors||"BLACK").split(",").map(x=>x.trim()).filter(Boolean),
-            badge:d.badge||"NEW",description:d.description||"",image,gallery,
-            ceeprintoProductId:d.ceeprintoProductId||null,
-            musicUrl:music,musicVolume:Number(musicVolume.value)/100
-          })
-        });
-        await adminTab("products");
-        await loadProducts();
-      }catch(err){alert(err.message)}
-    };
+    if(!url && !fileInput.files?.length){
+      selectedImage="assets/no-signal-logo.png";
+      preview.textContent="IMAGE PREVIEW";
+    }
   });
+
+  $("#productForm").onsubmit=async e=>{
+    e.preventDefault();
+
+    const d=Object.fromEntries(new FormData(e.target));
+
+    const colors=(d.colors||"BLACK")
+      .split(",")
+      .map(x=>x.trim())
+      .filter(Boolean);
+
+    const image=fileInput.files?.length
+      ? selectedImage
+      : (urlInput.value.trim() || "assets/no-signal-logo.png");
+
+    const colorImages={};
+
+    for(const color of colors){
+      const block=[...colorFields.querySelectorAll("[data-color-file]")]
+        .find(x=>x.dataset.colorFile===color);
+
+      const urlBlock=[...colorFields.querySelectorAll("[data-color-url]")]
+        .find(x=>x.dataset.colorUrl===color);
+
+      if(block?.files?.length){
+        try{
+          colorImages[color]=await imageFileToDataUrl(block.files[0]);
+        }catch(err){
+          alert(color + ": " + err.message);
+          return;
+        }
+      }else if(urlBlock?.value.trim()){
+        colorImages[color]=urlBlock.value.trim();
+      }
+    }
+
+    try{
+      await adminFetch('/api/admin/products',{
+        method:'POST',
+        headers:{'content-type':'application/json'},
+        body:JSON.stringify({
+          name:d.name,
+          price:+d.price,
+          compareAt:d.compareAt?+d.compareAt:null,
+          category:d.category,
+          stock:+d.stock,
+          sizes:(d.sizes||'S,M,L,XL').split(',').map(x=>x.trim()).filter(Boolean),
+          colors,
+          colorImages,
+          badge:d.badge||'NEW',
+          description:d.description||'',
+          image
+        })
+      });
+
+      await adminTab('products');
+      await loadProducts();
+
+    }catch(err){
+      alert(err.message);
+    }
+  };
+});
   $$('[data-del-product]').forEach(b=>b.onclick=async()=>{if(!confirm('Delete this product?'))return;try{await adminFetch('/api/admin/products',{method:'DELETE',headers:{'content-type':'application/json'},body:JSON.stringify({id:b.dataset.delProduct})});await adminTab('products');await loadProducts()}catch(err){alert(err.message)}});
   $("#settingsForm")?.addEventListener("submit",async e=>{e.preventDefault();const d=Object.fromEntries(new FormData(e.target));d.shippingFee=+d.shippingFee;d.freeShippingAbove=+d.freeShippingAbove;try{const out=await adminFetch('/api/admin/settings',{method:'PUT',headers:{'content-type':'application/json'},body:JSON.stringify(d)});Object.assign(NO_SIGNAL.settings,out.settings);alert('Store details saved.')}catch(err){alert(err.message)}});
  }catch(err){if(err.message==='SESSION_EXPIRED'){openAdmin();return}$("#adminContent").innerHTML=`<p class="muted">${err.message}</p>`}
@@ -520,20 +565,6 @@ async function openAdmin(){
 function closeModal(id){$("#"+id+"Modal").classList.remove("open")}
 
 document.addEventListener("click",e=>{
- const colorBtn=e.target.closest("[data-catalogue-color]");
- if(colorBtn){
-   e.preventDefault();
-   e.stopPropagation();
-   const product=products.find(x=>x.id===colorBtn.dataset.productColor);
-   if(product){
-     const img=colorBtn.closest(".product-image")?.querySelector(".catalogue-product-image");
-     const src=getColorImage(product,colorBtn.dataset.catalogueColor);
-     if(img) img.src=src;
-     colorBtn.closest(".catalogue-colors")?.querySelectorAll("[data-catalogue-color]").forEach(x=>x.classList.remove("selected"));
-     colorBtn.classList.add("selected");
-   }
-   return;
- }
  const p=e.target.closest("[data-product]"); if(p && !e.target.closest("[data-wish]")) playProductTransition(p.dataset.product);
  if(e.target.closest("[data-wish]")) toggleWish(e.target.closest("[data-wish]").dataset.wish);
  if(e.target.closest("[data-open='bag']"))cartView();
