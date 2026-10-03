@@ -34,15 +34,16 @@ export async function onRequestGet({ request, env }) {
   for (const o of results) {
     const { results: items } = await env.DB.prepare(`
       SELECT
-        product_id AS productId,
-        name,
-        size,
-        color,
-        image,
-        quantity,
-        unit_price AS unitPrice
-      FROM order_items
-      WHERE order_id=?
+        oi.product_id AS productId,
+        oi.name,
+        oi.size,
+        oi.color,
+        COALESCE(NULLIF(oi.image,''), p.image) AS image,
+        oi.quantity,
+        oi.unit_price AS unitPrice
+      FROM order_items oi
+      LEFT JOIN products p ON p.id=oi.product_id
+      WHERE oi.order_id=?
       ORDER BY id ASC
     `).bind(o.id).all();
 
