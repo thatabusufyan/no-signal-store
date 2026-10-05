@@ -657,7 +657,24 @@ $("#searchInput").addEventListener("input",()=>{
 $$("[data-open='wishlist']").forEach(b=>b.addEventListener("click",()=>{openDrawer(`<p class="eyebrow">SAVED SIGNALS</p><h2>WISHLIST.</h2>${products.filter(p=>wishlist.includes(p.id)).map(p=>`<button type="button" class="cart-line wishlist-item" data-wishlist-product="${p.id}" style="width:100%;background:none;border:0;color:inherit;text-align:left;cursor:pointer"><img src="${getMainImages(p)[0]?.src||p.image||"assets/no-signal-logo.png"}" alt="${p.name}"><div><b>${p.name}</b><small style="display:block;color:#666">${money(p.price)}</small></div><span class="button">VIEW</span></button>`).join("")||'<p class="muted">Nothing saved yet.</p>'}`)}));
 
 $("#enter").addEventListener("click",()=>{
- try{const C=window.AudioContext||window.webkitAudioContext;const c=new C(),o=c.createOscillator(),g=c.createGain();o.type="sawtooth";o.frequency.setValueAtTime(90,c.currentTime);o.frequency.exponentialRampToValueAtTime(35,c.currentTime+.35);g.gain.setValueAtTime(.0001,c.currentTime);g.gain.exponentialRampToValueAtTime(.25,c.currentTime+.02);g.gain.exponentialRampToValueAtTime(.0001,c.currentTime+.42);o.connect(g).connect(c.destination);o.start();o.stop(c.currentTime+.45)}catch(_){}
+ try{
+  const C=window.AudioContext||window.webkitAudioContext;
+  const c=new C(),o=c.createOscillator(),g=c.createGain(),comp=c.createDynamicsCompressor();
+  if(c.state==="suspended")c.resume();
+  o.type="sawtooth";
+  o.frequency.setValueAtTime(90,c.currentTime);
+  o.frequency.exponentialRampToValueAtTime(35,c.currentTime+.35);
+  g.gain.setValueAtTime(.0001,c.currentTime);
+  g.gain.exponentialRampToValueAtTime(.7,c.currentTime+.02);
+  g.gain.exponentialRampToValueAtTime(.0001,c.currentTime+.42);
+  comp.threshold.setValueAtTime(-18,c.currentTime);
+  comp.knee.setValueAtTime(12,c.currentTime);
+  comp.ratio.setValueAtTime(6,c.currentTime);
+  comp.attack.setValueAtTime(.003,c.currentTime);
+  comp.release.setValueAtTime(.12,c.currentTime);
+  o.connect(g).connect(comp).connect(c.destination);
+  o.start();o.stop(c.currentTime+.45);
+ }catch(_){}
  $("#intro").classList.add("hide");
 });
 async function loadProducts(){try{const r=await fetch('/api/products');if(r.ok){const data=await r.json();if(Array.isArray(data)&&data.length){products=data;await Promise.all(products.filter(p=>p.musicUrl&&!isDirectAudioUrl(p.musicUrl)).map(async p=>{const url=await resolveProductAudioUrl(p.musicUrl);if(url)p.resolvedMusicUrl=url}))}renderProducts()}}catch(_){} }
