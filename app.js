@@ -72,19 +72,7 @@ function renderProducts(){
         <span class="product-badge">${p.badge||"CORE"}</span>
         <button class="heart ${wishlist.includes(p.id)?"on":""}" data-wish="${p.id}">${wishlist.includes(p.id)?"♥":"♡"}</button>
         <img class="catalogue-product-image" src="${getMainImages(p)[0]?.src||p.image||"assets/no-signal-logo.png"}" alt="${p.name}">
-        ${Array.isArray(p.colors)&&p.colors.length>1?`
-          <div class="catalogue-colors">
-            ${p.colors.map((c,i)=>`
-              <button type="button"
-                class="catalogue-color ${i===0?"selected":""}"
-                data-catalogue-color="${c}"
-                data-product-color="${p.id}"
-                title="${c}">
-                ${c}
-              </button>
-            `).join("")}
-          </div>
-        `:""}
+
       </div>
       <div class="product-info" data-product="${p.id}">
         <div class="product-name">${p.name}</div><div class="product-cat">${p.category}</div>
@@ -294,6 +282,9 @@ async function adminTab(tab="products"){
                ${o.city||"—"} · ${o.address||"—"} · ${o.postalCode||"—"}
              </small>
              <small style="display:block;color:#777;margin-top:4px">
+               PLACED: ${o.createdAt?new Date(o.createdAt).toLocaleString("en-PK",{dateStyle:"medium",timeStyle:"short"}):"—"}
+             </small>
+             <small style="display:block;color:#777;margin-top:4px">
                ITEMS: ${(o.items||[]).map(i=>`${i.name} / ${i.size||"—"} / ${i.color||"—"} × ${i.quantity}`).join(" · ")||"—"}
              </small>
              <small style="display:block;color:#777;margin-top:4px">
@@ -319,7 +310,9 @@ async function adminTab(tab="products"){
          <h2>${o.id}</h2>
 
          <div style="border:1px solid #333;padding:18px;margin:20px 0">
-           <p class="eyebrow">CUSTOMER</p>
+           <p class="eyebrow">ORDER PLACED</p>
+           <p><b>${o.createdAt?new Date(o.createdAt).toLocaleString("en-PK",{dateStyle:"full",timeStyle:"short"}):"—"}</b></p>
+           <p class="eyebrow" style="margin-top:18px">CUSTOMER</p>
            <p><b>${o.customerName||"—"}</b></p>
            <p class="muted">${o.phone||"—"}</p>
            <p class="muted">${o.email||"—"}</p>
@@ -334,7 +327,7 @@ async function adminTab(tab="products"){
            ${items.map(item=>`
              <div style="border-bottom:1px solid #222;padding:14px 0">
                <div style="display:flex;gap:12px;align-items:flex-start">
-                 ${item.image?`<img src="${item.image}" alt="${item.name}" style="width:72px;height:72px;object-fit:cover;background:#111;border:1px solid #333">`:""}
+                 ${item.image?`<img src="${item.image}" alt="${item.name}" style="width:96px;height:96px;object-fit:cover;background:#111;border:1px solid #333;flex:0 0 96px">`:""}
                  <div>
                    <b>${item.name}</b>
                    <small style="display:block;color:#999;margin-top:5px">
