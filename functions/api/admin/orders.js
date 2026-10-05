@@ -38,7 +38,9 @@ export async function onRequestGet({ request, env }) {
         oi.name,
         oi.size,
         oi.color,
-        COALESCE(NULLIF(oi.image,''), p.image) AS image,
+        oi.image AS orderItemImage,
+        p.image AS productImage,
+        p.color_images_json AS productMedia,
         oi.quantity,
         oi.unit_price AS unitPrice
       FROM order_items oi
@@ -46,6 +48,28 @@ export async function onRequestGet({ request, env }) {
       WHERE oi.order_id=?
       ORDER BY oi.id ASC
     `).bind(o.id).all();
+
+    const normalizedItems = items.map(item => {
+      let fallback = item.productImage || "";
+      try {
+        const media = JSON.parse(item.productMedia || "{}");
+        const gallery = Array.isArray(media.gallery) ? media.gallery : [];
+        const wanted = String(item.color || "").trim().toLowerCase();
+        const colorMatch = wanted
+          ? gallery.find(x => x && x.src && String(x.color || "").trim().toLowerCase() === wanted)
+          : null;
+        fallback = colorMatch?.src || gallery.find(x => x && x.src)?.src || fallback;
+      } catch (_) {}
+      return {
+        productId: item.productId,
+        name: item.name,
+        size: item.size,
+        color: item.color,
+        image: item.orderItemImage || fallback || "",
+        quantity: item.quantity,
+        unitPrice: item.unitPrice
+      };
+    });
 
     orders.push({
       ...o,
@@ -58,7 +82,7 @@ export async function onRequestGet({ request, env }) {
         address: o.address || "",
         postalCode: o.postalCode || ""
       },
-      items
+      items: normalizedItems
     });
   }
 
