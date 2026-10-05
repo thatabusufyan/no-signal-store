@@ -2,6 +2,20 @@
 const $ = s => document.querySelector(s);
 const $$ = s => [...document.querySelectorAll(s)];
 const money = n => `${NO_SIGNAL.settings.currency} ${Number(n).toLocaleString("en-PK")}`;
+function formatOrderDate(value, full=false){
+  if(!value)return "—";
+  const raw=String(value).trim();
+  const iso=/Z$|[+-]\d\d:\d\d$/.test(raw)
+    ? raw
+    : raw.replace(" ","T")+"Z";
+  const d=new Date(iso);
+  if(Number.isNaN(d.getTime()))return "—";
+  return d.toLocaleString("en-PK",{
+    timeZone:"Asia/Karachi",
+    ...(full?{dateStyle:"full",timeStyle:"short"}:{dateStyle:"medium",timeStyle:"short"})
+  });
+}
+
 
 let products = NO_SIGNAL.products.slice();
 let cart = JSON.parse(localStorage.getItem("ns_cart") || "[]");
@@ -96,9 +110,6 @@ function productDetail(id){
  const gallery=normalizeGallery(p);
  const firstColor=colors[0]||"";
  const initialImages=getMainImages(p);
-
- if(window.noSignalProductAudio){try{window.noSignalProductAudio.pause();window.noSignalProductAudio.currentTime=0}catch(_){}}
- window.noSignalProductAudio=null;
 
  openDrawer(`
   <p class="eyebrow">${p.category} / ${p.id}</p>
@@ -282,7 +293,7 @@ async function adminTab(tab="products"){
                ${o.city||"—"} · ${o.address||"—"} · ${o.postalCode||"—"}
              </small>
              <small style="display:block;color:#777;margin-top:4px">
-               PLACED: ${o.createdAt?new Date(o.createdAt).toLocaleString("en-PK",{dateStyle:"medium",timeStyle:"short"}):"—"}
+               PLACED: ${o.createdAt?formatOrderDate(o.createdAt):"—"}
              </small>
              <small style="display:block;color:#777;margin-top:4px">
                ITEMS: ${(o.items||[]).map(i=>`${i.name} / ${i.size||"—"} / ${i.color||"—"} × ${i.quantity}`).join(" · ")||"—"}
@@ -311,7 +322,7 @@ async function adminTab(tab="products"){
 
          <div style="border:1px solid #333;padding:18px;margin:20px 0">
            <p class="eyebrow">ORDER PLACED</p>
-           <p><b>${o.createdAt?new Date(o.createdAt).toLocaleString("en-PK",{dateStyle:"full",timeStyle:"short"}):"—"}</b></p>
+           <p><b>${o.createdAt?formatOrderDate(o.createdAt,true):"—"}</b></p>
            <p class="eyebrow" style="margin-top:18px">CUSTOMER</p>
            <p><b>${o.customerName||"—"}</b></p>
            <p class="muted">${o.phone||"—"}</p>
@@ -353,7 +364,7 @@ async function adminTab(tab="products"){
            <p class="muted">FULFILLMENT: <b style="color:white">${o.fulfillmentStatus||"received"}</b></p>
            ${o.trackingNumber?`<p class="muted">TRACKING: <b style="color:white">${o.trackingNumber}</b></p>`:""}
            ${o.ceeprintoOrderId?`<p class="muted">CEEPRINTO: <b style="color:white">${o.ceeprintoOrderId}</b></p>`:""}
-           ${o.createdAt?`<p class="muted">ORDERED: <b style="color:white">${new Date(o.createdAt).toLocaleString()}</b></p>`:""}
+           ${o.createdAt?`<p class="muted">ORDERED: <b style="color:white">${formatOrderDate(o.createdAt,true)}</b></p>`:""}
          </div>
        `);
      });
@@ -394,8 +405,9 @@ async function adminTab(tab="products"){
       <div id="colorImageFields"></div>
 
       <label style="display:block;font-size:10px;letter-spacing:.08em;color:#999;margin-top:22px">PRODUCT MUSIC (OPTIONAL)</label>
-      <input id="musicUrl" placeholder="MUSIC URL (OPTIONAL)">
-      <p class="muted" style="font-size:10px">Use a direct audio URL. File uploads are disabled because the store is using URL-based media without R2.</p>
+      <input id="musicFile" type="file" accept="audio/*">
+      <input id="musicUrl" placeholder="OR PASTE A DIRECT MUSIC URL" style="margin-top:7px">
+      <p class="muted" style="font-size:10px">You can now choose the music file directly from your computer. Files are stored with the product for playback. For reliability without R2, the music file must be 1 MB or smaller. A direct audio URL can be used instead for larger files.</p>
       <label style="display:block;font-size:10px;letter-spacing:.08em;color:#999;margin-top:8px">MUSIC VOLUME: <span id="musicVolumeValue">35%</span></label>
       <input id="musicVolume" type="range" min="0" max="100" value="35" step="1">
 
@@ -405,6 +417,7 @@ async function adminTab(tab="products"){
 
     const mainFields=$("#mainImageFields");
     const colorFields=$("#colorImageFields");
+    const musicFile=$("#musicFile");
     const musicUrl=$("#musicUrl");
     const musicVolume=$("#musicVolume");
     const musicVolumeValue=$("#musicVolumeValue");
@@ -527,7 +540,19 @@ async function adminTab(tab="products"){
       const d=Object.fromEntries(new FormData(e.target));
       try{
         const gallery=[...(await collect(mainFields,"main")),...(await collect(colorFields,"color"))];
-        const music=d.musicUrl||"";
+
+        let music=d.musicUrl||"";
+        const selectedMusic=musicFile.files?.[0];
+        if(selectedMusic){
+          if(!selectedMusic.type.startsWith("audio/"))throw new Error("Please choose an audio file.");
+          if(selectedMusic.size>1024*1024)throw new Error("Music file must be 1 MB or smaller. For larger music, paste a direct audio URL instead.");
+          music=await new Promise((resolve,reject)=>{
+            const reader=new FileReader();
+            reader.onload=()=>resolve(reader.result);
+            reader.onerror=()=>reject(new Error("Could not read the music file."));
+            reader.readAsDataURL(selectedMusic);
+          });
+        }
 
         const image=(gallery.find(x=>x.type==="main")||gallery[0])?.src||"assets/no-signal-logo.png";
 
